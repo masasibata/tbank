@@ -15,3 +15,4 @@ class Endpoint(Generic[TReq, TResp]):
     path: str
     response_model: Type[TResp]
     request_model: Optional[Type[TReq]] = None
+    secured: bool = False  # True → идёт на secured-хост (mTLS)

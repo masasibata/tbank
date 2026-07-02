@@ -15,6 +15,10 @@ class TBankTimeoutError(TBankNetworkError):
     """Истёк таймаут запроса."""
 
 
+class MutualTLSRequiredError(TBankError):
+    """Вызван secured-метод, но клиент создан без mTLS-сертификата."""
+
+
 class TBankAPIError(TBankError):
     """Логическая ошибка API (Success=false / HTTP 4xx-5xx)."""
 

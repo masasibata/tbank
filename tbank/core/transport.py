@@ -22,11 +22,15 @@ class _TransportBase:
         retry: Optional[RetryPolicy] = None,
         timeout: Optional[httpx.Timeout] = None,
         user_agent: str = "tbank",
+        cert: Optional[Any] = None,
+        verify: Any = True,
     ) -> None:
         self._base_url = base_url.rstrip("/")
         self._auth: AuthStrategy = auth or NoAuth()
         self._retry = retry or RetryPolicy()
         self._timeout = timeout or DEFAULT_TIMEOUT
+        self._cert = cert  # mTLS: (cert.pem, key.pem) или путь
+        self._verify = verify  # CA-бандл или True
         self._base_headers: Headers = {
             "Content-Type": "application/json",
             "User-Agent": user_agent,
@@ -57,7 +61,9 @@ class AsyncTransport(_TransportBase):
         self, *, client: Optional[httpx.AsyncClient] = None, **kwargs: Any
     ) -> None:
         super().__init__(**kwargs)
-        self._client = client or httpx.AsyncClient(timeout=self._timeout)
+        self._client = client or httpx.AsyncClient(
+            timeout=self._timeout, cert=self._cert, verify=self._verify
+        )
 
     async def request(
         self,
@@ -113,7 +119,9 @@ class AsyncTransport(_TransportBase):
 class SyncTransport(_TransportBase):
     def __init__(self, *, client: Optional[httpx.Client] = None, **kwargs: Any) -> None:
         super().__init__(**kwargs)
-        self._client = client or httpx.Client(timeout=self._timeout)
+        self._client = client or httpx.Client(
+            timeout=self._timeout, cert=self._cert, verify=self._verify
+        )
 
     def request(
         self,

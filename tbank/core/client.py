@@ -6,7 +6,11 @@ import httpx
 from pydantic import BaseModel
 
 from tbank.core.endpoint import Endpoint
-from tbank.core.errors import TBankAPIError, build_api_error
+from tbank.core.errors import (
+    MutualTLSRequiredError,
+    TBankAPIError,
+    build_api_error,
+)
 from tbank.core.transport import AsyncTransport, SyncTransport
 
 TResp = TypeVar("TResp", bound=BaseModel)
@@ -47,16 +51,31 @@ class _CallMixin:
 
 
 class BaseAsyncClient(_CallMixin):
-    def __init__(self, transport: AsyncTransport) -> None:
+    def __init__(
+        self,
+        transport: AsyncTransport,
+        secured_transport: Optional[AsyncTransport] = None,
+    ) -> None:
         self._transport = transport
+        self._secured_transport = secured_transport
+
+    def _pick_transport(self, secured: bool) -> AsyncTransport:
+        if not secured:
+            return self._transport
+        if self._secured_transport is None:
+            raise MutualTLSRequiredError(
+                "Метод требует mTLS-сертификата: передайте cert=(cert, key) в клиент."
+            )
+        return self._secured_transport
 
     async def _call(
         self,
         endpoint: "Endpoint[Any, TResp]",
         request: Optional[BaseModel] = None,
     ) -> TResp:
+        transport = self._pick_transport(endpoint.secured)
         json_body, params = self._prepare_payload(endpoint, request)
-        response = await self._transport.request(
+        response = await transport.request(
             endpoint.method, endpoint.path, json=json_body, params=params
         )
         self._raise_for_http(response)
@@ -66,6 +85,8 @@ class BaseAsyncClient(_CallMixin):
 
     async def aclose(self) -> None:
         await self._transport.aclose()
+        if self._secured_transport is not None:
+            await self._secured_transport.aclose()
 
     async def __aenter__(self) -> "BaseAsyncClient":
         return self
@@ -75,16 +96,31 @@ class BaseAsyncClient(_CallMixin):
 
 
 class BaseSyncClient(_CallMixin):
-    def __init__(self, transport: SyncTransport) -> None:
+    def __init__(
+        self,
+        transport: SyncTransport,
+        secured_transport: Optional[SyncTransport] = None,
+    ) -> None:
         self._transport = transport
+        self._secured_transport = secured_transport
+
+    def _pick_transport(self, secured: bool) -> SyncTransport:
+        if not secured:
+            return self._transport
+        if self._secured_transport is None:
+            raise MutualTLSRequiredError(
+                "Метод требует mTLS-сертификата: передайте cert=(cert, key) в клиент."
+            )
+        return self._secured_transport
 
     def _call(
         self,
         endpoint: "Endpoint[Any, TResp]",
         request: Optional[BaseModel] = None,
     ) -> TResp:
+        transport = self._pick_transport(endpoint.secured)
         json_body, params = self._prepare_payload(endpoint, request)
-        response = self._transport.request(
+        response = transport.request(
             endpoint.method, endpoint.path, json=json_body, params=params
         )
         self._raise_for_http(response)
@@ -94,6 +130,8 @@ class BaseSyncClient(_CallMixin):
 
     def close(self) -> None:
         self._transport.close()
+        if self._secured_transport is not None:
+            self._secured_transport.close()
 
     def __enter__(self) -> "BaseSyncClient":
         return self
