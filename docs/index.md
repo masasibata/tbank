@@ -44,6 +44,7 @@ async with AcquiringClient(terminal_key="...", password="...") as client:
 | [`tbank.business`](business.md) | Счета и балансы, выписки, рублёвые платежи через mTLS, инвойсы, СБП-ссылки b2b |
 | [`tbank.dolyame`](dolyame.md) | Оплата частями (BNPL): жизненный цикл заказа, возвраты, доставка |
 | [`tbank.tid`](tid.md) | T-ID: вход через Т-Банк (OAuth 2.0/OIDC), учётные данные, документы, статусы, компания, делегированная идентификация |
+| [`tbank.selfemployed`](selfemployed.md) | Выплаты самозанятым (e2c): анкеты, платёжные реестры, подписание, оплата, чеки |
 
 ```{toctree}
 :maxdepth: 2
@@ -66,6 +67,7 @@ acquiring
 business
 dolyame
 tid
+selfemployed
 ```
 
 ```{toctree}

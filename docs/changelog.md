@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.2.0
+
+- Новый домен **`tbank.selfemployed`** — выплаты самозанятым (e2c):
+  - Самозанятые: `create_recipients` (черновики анкет), `add_recipients_by_requisites`,
+    `list_recipients` + опрос результатов `get_*_result`.
+  - Платёжные реестры: `create_payment_registry`, подписание `submit_payment_registry`,
+    оплата `pay_payment_registry`, чеки `request_receipts` + опрос результатов;
+    `list_payment_registries`, `get_payment_registry`.
+  - Async-модель submit→pay→result через клиентский `correlationId` (генерируется
+    автоматически). Подписание/оплата/чеки/список реестров — на secured-хосте по mTLS,
+    анкеты и создание реестра — на обычном хосте по Bearer. Суммы — `Decimal` в рублях.
+
 ## 1.1.0
 
 - Новый домен **`tbank.tid`** — T-ID:
