@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.0.0
+
+Стабильный релиз.
+
+- Новый домен **`tbank.dolyame`** — оплата частями (BNPL): жизненный цикл заказа
+  (`create_order`, `get_order`, `commit`, `cancel`, `refund`, `correction`,
+  `complete_delivery`), вебхуки, аутентификация mTLS + HTTP Basic.
+- Полная документация (Sphinx + readthedocs): гайды по аутентификации, ошибкам и
+  вебхукам, справочник всех методов и моделей (autodoc-pydantic).
+
 ## 0.1.0
 
 Первый релиз.
