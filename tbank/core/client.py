@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Dict, Optional, Tuple, TypeVar
+from typing import Any, Dict, Optional, Tuple, Type, TypeVar
 
 import httpx
 from pydantic import BaseModel
@@ -86,6 +86,25 @@ class BaseAsyncClient(_CallMixin):
         self._check_error(data)
         return endpoint.response_model.model_validate(data)
 
+    async def _request(
+        self,
+        method: str,
+        path: str,
+        response_model: Type[TResp],
+        request: Optional[BaseModel] = None,
+    ) -> TResp:
+        """Прямой вызов с явным путём (для эндпоинтов с path-параметрами)."""
+        json_body = (
+            request.model_dump(by_alias=True, exclude_none=True, mode="json")
+            if request is not None
+            else None
+        )
+        response = await self._transport.request(method, path, json=json_body)
+        self._raise_for_http(response)
+        data = self._parse_body(response)
+        self._check_error(data)
+        return response_model.model_validate(data)
+
     async def aclose(self) -> None:
         await self._transport.aclose()
         if self._secured_transport is not None:
@@ -130,6 +149,25 @@ class BaseSyncClient(_CallMixin):
         data = self._parse_body(response)
         self._check_error(data)
         return endpoint.response_model.model_validate(data)
+
+    def _request(
+        self,
+        method: str,
+        path: str,
+        response_model: Type[TResp],
+        request: Optional[BaseModel] = None,
+    ) -> TResp:
+        """Прямой вызов с явным путём (для эндпоинтов с path-параметрами)."""
+        json_body = (
+            request.model_dump(by_alias=True, exclude_none=True, mode="json")
+            if request is not None
+            else None
+        )
+        response = self._transport.request(method, path, json=json_body)
+        self._raise_for_http(response)
+        data = self._parse_body(response)
+        self._check_error(data)
+        return response_model.model_validate(data)
 
     def close(self) -> None:
         self._transport.close()
