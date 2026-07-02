@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import List, Optional
 
-from pydantic import Field
+from pydantic import AliasChoices, Field
 
 from tbank.acquiring.enums import (
     AccountQrStatus,
@@ -347,3 +347,67 @@ class QrState(TBankModel):
     order_id: Optional[str] = None
     amount: Optional[Kopecks] = None  # сумма возврата, копейки
     message: Optional[str] = None
+
+
+# --- Альтернативные способы оплаты (T-Pay / SberPay / MirPay) ---
+
+
+class AltPayParams(TBankModel):
+    allowed: Optional[bool] = None  # T-Pay status
+    version: Optional[str] = None  # T-Pay: "1.0" / "2.0"
+    redirect_url: Optional[str] = Field(default=None, alias="RedirectUrl")
+    web_qr: Optional[str] = Field(default=None, alias="WebQR")
+    deeplink: Optional[str] = None  # MirPay
+
+
+class AltPayResponse(TBankModel):
+    success: bool
+    error_code: str
+    params: Optional[AltPayParams] = None
+    message: Optional[str] = None
+    details: Optional[str] = None
+
+
+class MirPayRequest(TBankModel):
+    payment_id: str
+
+
+# --- Служебные методы ---
+
+
+class CheckOrderRequest(TBankModel):
+    order_id: str
+
+
+class CheckOrderPayment(TBankModel):
+    payment_id: Optional[str] = None
+    amount: Optional[Kopecks] = None
+    status: Optional[str] = None  # включая AUTH_FAIL и др. — строкой
+    rrn: Optional[str] = Field(
+        default=None, validation_alias=AliasChoices("Rrn", "RRN")
+    )
+    success: Optional[bool] = None
+    error_code: Optional[str] = None
+    message: Optional[str] = None
+
+
+class CheckOrderResponse(TBankModel):
+    success: bool
+    error_code: str
+    terminal_key: Optional[str] = None
+    order_id: Optional[str] = None
+    payments: List[CheckOrderPayment] = Field(default_factory=list)
+    message: Optional[str] = None
+    details: Optional[str] = None
+
+
+class ResendRequest(TBankModel):
+    """Переотправка недоставленных нотификаций (тело без параметров)."""
+
+
+class ResendResponse(TBankModel):
+    success: bool
+    error_code: str
+    count: Optional[int] = None  # число нотификаций, поставленных на переотправку
+    message: Optional[str] = None
+    details: Optional[str] = None

@@ -88,6 +88,21 @@ add = await client.add_card("c1", check_type=CheckType.THREE_DS)
 state = await client.get_add_card_state(add.request_key)   # COMPLETED → card_id/rebill_id
 ```
 
+## Альтернативная оплата и служебные методы
+
+```python
+# T-Pay / SberPay / MirPay по созданному через init платежу:
+status = await client.get_tinkoff_pay_status()               # доступность + версия
+link = await client.get_tinkoff_pay_link(payment_id, status.params.version)
+svg = await client.get_tinkoff_pay_qr(payment_id)            # QR (SVG) для десктопа
+await client.get_sber_pay_link(payment_id)
+await client.get_mir_pay_deeplink(payment_id)
+
+# служебное:
+await client.check_order(order_id)                           # статусы всех платежей заказа
+await client.resend()                                        # переотправить вебхуки
+```
+
 ## Клиент
 
 ```{eval-rst}

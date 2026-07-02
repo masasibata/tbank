@@ -15,6 +15,7 @@ from tbank.acquiring.models import (
     AddCardResponse,
     AddCardState,
     AddCustomerRequest,
+    AltPayResponse,
     CancelRequest,
     CancelResponse,
     Card,
@@ -22,6 +23,8 @@ from tbank.acquiring.models import (
     ChargeQrResponse,
     ChargeRequest,
     ChargeResponse,
+    CheckOrderRequest,
+    CheckOrderResponse,
     ConfirmRequest,
     ConfirmResponse,
     Customer,
@@ -36,12 +39,15 @@ from tbank.acquiring.models import (
     GetStateResponse,
     InitRequest,
     InitResponse,
+    MirPayRequest,
     QrMembersListRequest,
     QrMembersListResponse,
     QrState,
     Receipt,
     RemoveCardRequest,
     RemoveCardResponse,
+    ResendRequest,
+    ResendResponse,
     SendClosingReceiptRequest,
     SendClosingReceiptResponse,
 )
@@ -102,6 +108,7 @@ class AcquiringClient(BaseSyncClient):
             retry=retry,
         )
         super().__init__(transport)
+        self._terminal_key = terminal_key
 
     def _check_error(self, data: Dict[str, Any]) -> None:
         raise_for_acquiring_result(data)
@@ -309,3 +316,61 @@ class AcquiringClient(BaseSyncClient):
     def get_qr_state(self, payment_id: str) -> QrState:
         """Статус возврата платежа по СБП."""
         return self._call(_GET_QR_STATE, GetQrStateRequest(payment_id=payment_id))
+
+    # --- Альтернативные способы оплаты (T-Pay / SberPay / MirPay) ---
+
+    def get_tinkoff_pay_status(self) -> AltPayResponse:
+        """Доступность T-Pay и версия терминала (для выбора link/QR)."""
+        return self._request(
+            "GET", f"/TinkoffPay/terminals/{self._terminal_key}/status", AltPayResponse
+        )
+
+    def get_tinkoff_pay_link(self, payment_id: str, version: str) -> AltPayResponse:
+        """Ссылка T-Pay для редиректа в приложение банка (мобильный)."""
+        return self._request(
+            "GET",
+            f"/TinkoffPay/transactions/{payment_id}/versions/{version}/link",
+            AltPayResponse,
+        )
+
+    def get_tinkoff_pay_qr(self, payment_id: str) -> str:
+        """T-Pay QR (SVG-изображение) для десктопа."""
+        response = self._transport.request("GET", f"/TinkoffPay/{payment_id}/QR")
+        self._raise_for_http(response)
+        return response.text
+
+    def get_sber_pay_link(self, payment_id: str) -> AltPayResponse:
+        """Ссылка SberPay для редиректа (мобильный). Путь без версии — досверить."""
+        return self._request(
+            "GET", f"/SberPay/transactions/{payment_id}/link", AltPayResponse
+        )
+
+    def get_sber_pay_qr(self, payment_id: str) -> str:
+        """SberPay QR (SVG) для десктопа."""
+        response = self._transport.request("GET", f"/SberPay/{payment_id}/QR")
+        self._raise_for_http(response)
+        return response.text
+
+    def get_mir_pay_deeplink(self, payment_id: str) -> AltPayResponse:
+        """MirPay deeplink в приложение Mir Pay."""
+        return self._request(
+            "POST",
+            "/MirPay/GetDeepLink",
+            AltPayResponse,
+            MirPayRequest(payment_id=payment_id),
+        )
+
+    # --- Служебные методы ---
+
+    def check_order(self, order_id: str) -> CheckOrderResponse:
+        """Статусы всех платежей по OrderId."""
+        return self._request(
+            "POST",
+            "/CheckOrder",
+            CheckOrderResponse,
+            CheckOrderRequest(order_id=order_id),
+        )
+
+    def resend(self) -> ResendResponse:
+        """Переотправить недоставленные нотификации."""
+        return self._request("POST", "/Resend", ResendResponse, ResendRequest())
