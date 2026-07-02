@@ -40,14 +40,17 @@ class _CallMixin:
     def _prepare_payload(
         endpoint: "Endpoint[Any, Any]", request: Optional[BaseModel]
     ) -> Tuple[Optional[Dict[str, Any]], Optional[Dict[str, Any]]]:
-        """Возвращает (json_body, query_params): GET → query, иначе → тело."""
+        """Возвращает (json_body, query_params): GET → query, иначе → тело.
+
+        Всегда mode="json": даты → ISO, Decimal → число (через сериализаторы моделей),
+        enum → значение. Иначе httpx не сериализует Decimal/datetime в теле POST.
+        """
         if request is None:
             return None, None
+        dumped = request.model_dump(by_alias=True, exclude_none=True, mode="json")
         if endpoint.method == "GET":
-            return None, request.model_dump(
-                by_alias=True, exclude_none=True, mode="json"
-            )
-        return request.model_dump(by_alias=True, exclude_none=True), None
+            return None, dumped
+        return dumped, None
 
 
 class BaseAsyncClient(_CallMixin):
