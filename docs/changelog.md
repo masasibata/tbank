@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.1.0
+
+- Новый домен **`tbank.tid`** — T-ID:
+  - Вход через Т-Банк по OAuth 2.0 / OIDC (`TidOAuth`): `build_authorization_url`
+    (в т.ч. PKCE), `fetch_token`, `refresh_token`, `fetch_client_credentials_token`,
+    `introspect`, `revoke`, `get_userinfo` на `id.tbank.ru`.
+  - Data-эндпоинты (`TidClient`): учётные данные, ИНН/СНИЛС, паспорт, водительские
+    удостоверения, адреса, дебетовые счета; статусы идентификации, самозанятости,
+    иностранного агента, ПДЛ и чёрных списков; информация о компании (T-Business ID)
+    и делегированная идентификация.
+- Эквайринг: альтернативная оплата и служебные методы — `get_tinkoff_pay_status`,
+  `get_tinkoff_pay_link`, `get_tinkoff_pay_qr`, `get_sber_pay_link`, `get_sber_pay_qr`,
+  `get_mir_pay_deeplink`, `check_order`, `resend`.
+
 ## 1.0.0
 
 Стабильный релиз.
