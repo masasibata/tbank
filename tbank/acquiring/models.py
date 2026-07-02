@@ -1,10 +1,16 @@
 from __future__ import annotations
 
-from typing import Optional
+from typing import List, Optional
 
 from pydantic import Field
 
-from tbank.acquiring.enums import CardStatus, CardType, PaymentStatus
+from tbank.acquiring.enums import (
+    AccountQrStatus,
+    CardStatus,
+    CardType,
+    PaymentStatus,
+    QrDataType,
+)
 from tbank.core.models import Kopecks, TBankModel
 
 
@@ -136,3 +142,91 @@ class RemoveCardResponse(TBankModel):
     card_type: Optional[CardType] = None
     message: Optional[str] = None
     details: Optional[str] = None
+
+
+# --- СБП / QR ---
+
+
+class GetQrRequest(TBankModel):
+    payment_id: str
+    data_type: Optional[QrDataType] = None  # PAYLOAD (default) | IMAGE
+    bank_id: Optional[str] = None  # id банка из QrMembersList → deeplink
+
+
+class GetQrResponse(TBankModel):
+    success: bool
+    error_code: str
+    terminal_key: Optional[str] = None
+    order_id: Optional[str] = None
+    data: Optional[str] = None  # payload-ссылка (qr.nspk.ru) или SVG
+    payment_id: Optional[str] = None
+    request_key: Optional[str] = None
+    message: Optional[str] = None
+    details: Optional[str] = None
+
+
+class QrMembersListRequest(TBankModel):
+    payment_id: str
+
+
+class QrMember(TBankModel):
+    member_id: Optional[str] = None  # = BankId для GetQr/AddAccountQr
+    member_name: Optional[str] = None
+    is_payee: Optional[bool] = None
+
+
+class QrMembersListResponse(TBankModel):
+    success: bool
+    error_code: str
+    terminal_key: Optional[str] = None
+    order_id: Optional[str] = None
+    members: List[QrMember] = Field(default_factory=list)
+    message: Optional[str] = None
+    details: Optional[str] = None
+
+
+class AddAccountQrRequest(TBankModel):
+    description: str
+    data_type: Optional[QrDataType] = None
+    bank_id: Optional[str] = None
+    redirect_due_date: Optional[str] = None
+
+
+class AddAccountQrResponse(TBankModel):
+    success: bool
+    error_code: str
+    terminal_key: Optional[str] = None
+    data: Optional[str] = None  # QR для привязки
+    request_key: Optional[str] = None
+    message: Optional[str] = None
+    details: Optional[str] = None
+
+
+class GetAddAccountQrStateRequest(TBankModel):
+    request_key: str
+
+
+class AddAccountQrState(TBankModel):
+    success: bool
+    error_code: str
+    terminal_key: Optional[str] = None
+    request_key: Optional[str] = None
+    account_token: Optional[str] = None  # токен привязки для ChargeQr
+    bank_member_id: Optional[str] = None
+    bank_member_name: Optional[str] = None
+    status: Optional[AccountQrStatus] = None
+    message: Optional[str] = None
+    details: Optional[str] = None
+
+
+class ChargeQrRequest(TBankModel):
+    payment_id: str
+    account_token: str
+    ip: Optional[str] = Field(default=None, alias="IP")
+    send_email: Optional[bool] = None
+    info_email: Optional[str] = None
+    bank_member_id: Optional[str] = None
+
+
+class ChargeQrResponse(PaymentResponse):
+    currency: Optional[int] = None

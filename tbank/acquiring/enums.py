@@ -30,3 +30,15 @@ class CardType(int, Enum):
     DEBIT = 0  # карта списания
     CREDIT = 1  # карта пополнения
     DEBIT_CREDIT = 2  # пополнения и списания
+
+
+class QrDataType(str, Enum):
+    PAYLOAD = "PAYLOAD"  # платёжная ссылка/payload
+    IMAGE = "IMAGE"  # SVG-изображение QR
+
+
+class AccountQrStatus(str, Enum):
+    NEW = "NEW"
+    PROCESSING = "PROCESSING"
+    ACTIVE = "ACTIVE"  # привязка успешна
+    INACTIVE = "INACTIVE"  # неуспешна/деактивирована
