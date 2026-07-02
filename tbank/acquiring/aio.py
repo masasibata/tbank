@@ -33,8 +33,11 @@ from tbank.acquiring.models import (
     InitResponse,
     QrMembersListRequest,
     QrMembersListResponse,
+    Receipt,
     RemoveCardRequest,
     RemoveCardResponse,
+    SendClosingReceiptRequest,
+    SendClosingReceiptResponse,
 )
 from tbank.core.client import BaseAsyncClient
 from tbank.core.endpoint import Endpoint
@@ -64,6 +67,9 @@ _ADD_ACCOUNT_QR_STATE = Endpoint(
     "POST", "/GetAddAccountQrState", AddAccountQrState, GetAddAccountQrStateRequest
 )
 _CHARGE_QR = Endpoint("POST", "/ChargeQr", ChargeQrResponse, ChargeQrRequest)
+_SEND_CLOSING_RECEIPT = Endpoint(
+    "POST", "/SendClosingReceipt", SendClosingReceiptResponse, SendClosingReceiptRequest
+)
 _CARDS_ADAPTER = TypeAdapter(List[Card])
 
 
@@ -117,6 +123,7 @@ class AcquiringClient(BaseAsyncClient):
         ip: Optional[str] = None,
         send_email: Optional[bool] = None,
         info_email: Optional[str] = None,
+        receipt: Optional[Receipt] = None,
     ) -> ChargeResponse:
         """Рекуррентный платёж по сохранённой карте (RebillId), без участия покупателя."""
         return await self._call(
@@ -127,6 +134,7 @@ class AcquiringClient(BaseAsyncClient):
                 ip=ip,
                 send_email=send_email,
                 info_email=info_email,
+                receipt=receipt,
             ),
         )
 
@@ -243,6 +251,7 @@ class AcquiringClient(BaseAsyncClient):
         send_email: Optional[bool] = None,
         info_email: Optional[str] = None,
         bank_member_id: Optional[str] = None,
+        receipt: Optional[Receipt] = None,
     ) -> ChargeQrResponse:
         """СБП-автоплатёж по привязанному счёту (AccountToken)."""
         return await self._call(
@@ -254,5 +263,15 @@ class AcquiringClient(BaseAsyncClient):
                 send_email=send_email,
                 info_email=info_email,
                 bank_member_id=bank_member_id,
+                receipt=receipt,
             ),
+        )
+
+    async def send_closing_receipt(
+        self, payment_id: str, receipt: Receipt
+    ) -> SendClosingReceiptResponse:
+        """Отправить чек при подтверждении двухстадийного платежа."""
+        return await self._call(
+            _SEND_CLOSING_RECEIPT,
+            SendClosingReceiptRequest(payment_id=payment_id, receipt=receipt),
         )
