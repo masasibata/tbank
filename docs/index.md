@@ -42,6 +42,7 @@ async with AcquiringClient(terminal_key="...", password="...") as client:
 | --- | --- |
 | [`tbank.acquiring`](acquiring.md) | Приём платежей, вебхуки, рекуррент, карты, СБП QR, фискализация 54-ФЗ, привязка карт |
 | [`tbank.business`](business.md) | Счета и балансы, выписки, рублёвые платежи через mTLS, инвойсы, СБП-ссылки b2b |
+| [`tbank.dolyame`](dolyame.md) | Оплата частями (BNPL): жизненный цикл заказа, возвраты, доставка |
 
 ```{toctree}
 :maxdepth: 2
@@ -62,6 +63,7 @@ webhooks
 
 acquiring
 business
+dolyame
 ```
 
 ```{toctree}
