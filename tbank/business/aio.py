@@ -12,10 +12,16 @@ from tbank.business.models import (
     Account,
     BankStatement,
     BankStatementParams,
+    CreateOnetimeQrRequest,
     CreatePaymentRequest,
+    CreateReusableQrRequest,
     DocumentsStatusRequest,
     DocumentsStatusResponse,
+    InvoiceInfo,
     PaymentStatusResponse,
+    SbpQrResponse,
+    SendInvoiceRequest,
+    SendInvoiceResponse,
     StatementOperation,
     StatementPage,
     StatementParams,
@@ -40,6 +46,15 @@ _BANK_STATEMENT = Endpoint(
 )
 _DOCUMENTS_STATUS = Endpoint(
     "POST", "/api/v1/payment/status", DocumentsStatusResponse, DocumentsStatusRequest
+)
+_INVOICE_SEND = Endpoint(
+    "POST", "/api/v1/invoice/send", SendInvoiceResponse, SendInvoiceRequest
+)
+_QR_ONETIME = Endpoint(
+    "POST", "/api/v1/b2b/qr/onetime", SbpQrResponse, CreateOnetimeQrRequest
+)
+_QR_REUSABLE = Endpoint(
+    "POST", "/api/v1/b2b/qr/reusable", SbpQrResponse, CreateReusableQrRequest
 )
 _ACCOUNTS_ADAPTER = TypeAdapter(List[Account])
 
@@ -135,3 +150,35 @@ class BusinessClient(BaseAsyncClient):
         return await self._call(
             _DOCUMENTS_STATUS, DocumentsStatusRequest(document_ids=document_ids)
         )
+
+    async def send_invoice(self, request: SendInvoiceRequest) -> SendInvoiceResponse:
+        """Выставить счёт клиенту (вернёт invoiceId и ссылку на PDF)."""
+        return await self._call(_INVOICE_SEND, request)
+
+    async def get_invoice_info(self, invoice_id: str) -> InvoiceInfo:
+        """Статус выставленного счёта."""
+        response = await self._transport.request(
+            "GET", f"/api/v1/openapi/invoice/{invoice_id}/info"
+        )
+        self._raise_for_http(response)
+        return InvoiceInfo.model_validate(self._parse_body(response))
+
+    async def create_onetime_qr(self, request: CreateOnetimeQrRequest) -> SbpQrResponse:
+        """Одноразовая СБП-ссылка/QR для приёма оплаты."""
+        return await self._call(_QR_ONETIME, request)
+
+    async def create_reusable_qr(
+        self, request: CreateReusableQrRequest
+    ) -> SbpQrResponse:
+        """Многоразовая СБП-ссылка/QR."""
+        return await self._call(_QR_REUSABLE, request)
+
+    async def get_qr_info(
+        self, qr_id: str, *, with_image: bool = False
+    ) -> SbpQrResponse:
+        """Статус СБП-ссылки (опционально с картинкой QR)."""
+        response = await self._transport.request(
+            "GET", f"/api/v1/b2b/qr/{qr_id}/info", params={"withImage": with_image}
+        )
+        self._raise_for_http(response)
+        return SbpQrResponse.model_validate(self._parse_body(response))
