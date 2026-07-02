@@ -26,12 +26,14 @@ class TBankAPIError(TBankError):
         details: Optional[str] = None,
         http_status: Optional[int] = None,
         status: Optional[str] = None,
+        error_id: Optional[str] = None,
     ) -> None:
         self.code = code
         self.message = message
         self.details = details
         self.http_status = http_status
         self.status = status
+        self.error_id = error_id
         text = f"[{code}] {message}"
         if details:
             text += f" ({details})"
@@ -56,6 +58,22 @@ class ThreeDSError(TBankAPIError):
 
 class TerminalBlockedError(TBankAPIError):
     """Операция заблокирована для терминала."""
+
+
+class ForbiddenError(TBankAPIError):
+    """Доступ запрещён (неизвестный IP / нехватка скоупов / нет прав). HTTP 403."""
+
+
+class ValidationError(TBankAPIError):
+    """Некорректные данные запроса. HTTP 400/422."""
+
+
+class RateLimitError(TBankAPIError):
+    """Превышен лимит запросов. HTTP 429."""
+
+
+class ServerError(TBankAPIError):
+    """Ошибка на стороне сервера. HTTP 5xx."""
 
 
 # EACQ ErrorCode -> класс исключения (сверять с mapi_errors_list.pdf при расширении).

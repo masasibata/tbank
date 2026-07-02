@@ -7,6 +7,7 @@ from pydantic import BaseModel, ConfigDict
 from pydantic.alias_generators import to_pascal
 
 Kopecks = int
+Rubles = Decimal
 
 
 class TBankModel(BaseModel):
