@@ -26,3 +26,42 @@ class PaymentStatus(str, Enum):
     EXECUTED = "EXECUTED"
     FAILED = "FAILED"
     CANCELLED = "CANCELLED"
+
+
+class InvoiceStatus(str, Enum):
+    DRAFT = "DRAFT"
+    SUBMITTED = "SUBMITTED"
+    EXECUTED = "EXECUTED"
+
+
+class InvoiceVat(str, Enum):
+    NONE = "None"  # без НДС
+    VAT_0 = "0"
+    VAT_5 = "5"
+    VAT_7 = "7"
+    VAT_10 = "10"
+    VAT_18 = "18"
+    VAT_20 = "20"
+    VAT_22 = "22"
+
+
+class SbpVat(str, Enum):
+    VAT_0 = "0"
+    VAT_5 = "5"
+    VAT_7 = "7"
+    VAT_10 = "10"
+    VAT_20 = "20"
+    VAT_22 = "22"
+
+
+class SbpQrType(str, Enum):
+    ONETIME = "Onetime"
+    REUSABLE = "Reusable"
+
+
+class SbpQrStatus(str, Enum):
+    READY = "Ready"
+    PAID = "Paid"
+    CANCELLED = "Cancelled"
+    EXPIRED = "Expired"
+    FAILED = "Failed"

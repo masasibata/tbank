@@ -10,8 +10,13 @@ from pydantic.alias_generators import to_camel
 
 from tbank.business.enums import (
     AccountType,
+    InvoiceStatus,
+    InvoiceVat,
     OperationStatus,
     PaymentStatus,
+    SbpQrStatus,
+    SbpQrType,
+    SbpVat,
     TypeOfOperation,
 )
 from tbank.core.models import Rubles
@@ -208,3 +213,87 @@ class DocumentStatusError(BusinessModel):
 class DocumentsStatusResponse(BusinessModel):
     result: List[DocumentStatus] = Field(default_factory=list)
     result_error: List[DocumentStatusError] = Field(default_factory=list)
+
+
+# --- Выставление счетов (инвойсы) ---
+
+
+class InvoicePayer(BusinessModel):
+    name: Optional[str] = None
+    inn: Optional[str] = None
+    kpp: Optional[str] = None
+
+
+class InvoiceItem(BusinessModel):
+    name: str
+    price: WriteRubles  # цена за единицу в рублях
+    unit: str  # единица измерения, напр. "Шт"
+    vat: InvoiceVat
+    amount: WriteRubles  # количество единиц
+
+
+class InvoiceContact(BusinessModel):
+    email: Optional[str] = None
+
+
+class SendInvoiceRequest(BusinessModel):
+    invoice_number: str
+    due_date: Optional[date] = None  # YYYY-MM-DD
+    invoice_date: Optional[date] = None
+    account_number: Optional[str] = None
+    payer: Optional[InvoicePayer] = None
+    items: Optional[List[InvoiceItem]] = None
+    contacts: Optional[List[InvoiceContact]] = None
+    contact_phone: Optional[str] = None
+    comment: Optional[str] = None
+    custom_payment_purpose: Optional[str] = None
+
+
+class SendInvoiceResponse(BusinessModel):
+    pdf_url: str
+    invoice_id: str
+    incoming_invoice_url: Optional[str] = None
+
+
+class InvoiceInfo(BusinessModel):
+    status: InvoiceStatus
+
+
+# --- Выставление ссылок через СБП (b2b QR) ---
+
+
+class CreateOnetimeQrRequest(BusinessModel):
+    sum: WriteRubles
+    purpose: str
+    ttl: int  # срок жизни ссылки в днях
+    account_number: Optional[str] = None
+    vat: Optional[SbpVat] = None
+    redirect_url: Optional[str] = None
+
+
+class CreateReusableQrRequest(BusinessModel):
+    account_number: Optional[str] = None
+    sum: Optional[WriteRubles] = None  # 10..999999
+    purpose: Optional[str] = None
+    vat: Optional[SbpVat] = None
+    redirect_url: Optional[str] = None
+
+
+class SbpQrImage(BusinessModel):
+    content: Optional[str] = None  # base64
+    media_type: Optional[str] = None
+
+
+class SbpQrResponse(BusinessModel):
+    qr_id: str
+    payment_url: str
+    type: SbpQrType
+    status: SbpQrStatus
+    account_number: str
+    vat: Optional[SbpVat] = None
+    sum: Optional[Rubles] = None
+    sum_vat: Optional[Rubles] = None
+    due_date: Optional[datetime] = None  # ISO date-time
+    purpose: Optional[str] = None
+    redirect_url: Optional[str] = None
+    image: Optional[SbpQrImage] = None
