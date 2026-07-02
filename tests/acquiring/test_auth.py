@@ -20,7 +20,14 @@ def test_apply_injects_terminal_key_and_token():
     assert headers == {}
 
 
-def test_apply_handles_empty_body():
-    body, _ = TokenSignatureAuth("T", "p").apply(None, {})
+def test_apply_signs_empty_body_object():
+    body, _ = TokenSignatureAuth("T", "p").apply({}, {})
     assert body["TerminalKey"] == "T"
     assert body["Token"] == build_token({"TerminalKey": "T"}, "p")
+
+
+def test_apply_skips_signing_for_bodyless_get():
+    # GET-методы (T-Pay/SberPay) — без тела и без подписи.
+    body, headers = TokenSignatureAuth("T", "p").apply(None, {"X-H": "1"})
+    assert body is None
+    assert headers == {"X-H": "1"}

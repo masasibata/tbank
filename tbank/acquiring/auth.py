@@ -16,7 +16,10 @@ class TokenSignatureAuth:
         self._password = password
 
     def apply(self, body: Body, headers: Headers) -> Tuple[Body, Headers]:
-        payload: Dict[str, object] = dict(body or {})
+        # GET-методы (T-Pay/SberPay) идут без тела и без подписи.
+        if body is None:
+            return None, headers
+        payload: Dict[str, object] = dict(body)
         payload["TerminalKey"] = self._terminal_key
         payload["Token"] = build_token(payload, self._password)
         return payload, headers
