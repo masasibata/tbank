@@ -5,23 +5,34 @@ from typing import Any, Dict, List, Optional
 from pydantic import TypeAdapter
 
 from tbank.acquiring.auth import TokenSignatureAuth
+from tbank.acquiring.enums import QrDataType
 from tbank.acquiring.errors import raise_for_acquiring_result
 from tbank.acquiring.models import (
+    AddAccountQrRequest,
+    AddAccountQrResponse,
+    AddAccountQrState,
     AddCustomerRequest,
     CancelRequest,
     CancelResponse,
     Card,
+    ChargeQrRequest,
+    ChargeQrResponse,
     ChargeRequest,
     ChargeResponse,
     ConfirmRequest,
     ConfirmResponse,
     Customer,
     CustomerRequest,
+    GetAddAccountQrStateRequest,
     GetCardListRequest,
+    GetQrRequest,
+    GetQrResponse,
     GetStateRequest,
     GetStateResponse,
     InitRequest,
     InitResponse,
+    QrMembersListRequest,
+    QrMembersListResponse,
     RemoveCardRequest,
     RemoveCardResponse,
 )
@@ -42,6 +53,17 @@ _ADD_CUSTOMER = Endpoint("POST", "/AddCustomer", Customer, AddCustomerRequest)
 _GET_CUSTOMER = Endpoint("POST", "/GetCustomer", Customer, CustomerRequest)
 _REMOVE_CUSTOMER = Endpoint("POST", "/RemoveCustomer", Customer, CustomerRequest)
 _REMOVE_CARD = Endpoint("POST", "/RemoveCard", RemoveCardResponse, RemoveCardRequest)
+_GET_QR = Endpoint("POST", "/GetQr", GetQrResponse, GetQrRequest)
+_QR_MEMBERS = Endpoint(
+    "POST", "/QrMembersList", QrMembersListResponse, QrMembersListRequest
+)
+_ADD_ACCOUNT_QR = Endpoint(
+    "POST", "/AddAccountQr", AddAccountQrResponse, AddAccountQrRequest
+)
+_ADD_ACCOUNT_QR_STATE = Endpoint(
+    "POST", "/GetAddAccountQrState", AddAccountQrState, GetAddAccountQrStateRequest
+)
+_CHARGE_QR = Endpoint("POST", "/ChargeQr", ChargeQrResponse, ChargeQrRequest)
 _CARDS_ADAPTER = TypeAdapter(List[Card])
 
 
@@ -162,4 +184,69 @@ class AcquiringClient(BaseSyncClient):
         return self._call(
             _REMOVE_CARD,
             RemoveCardRequest(customer_key=customer_key, card_id=card_id, ip=ip),
+        )
+
+    def get_qr(
+        self,
+        payment_id: str,
+        *,
+        data_type: Optional[QrDataType] = None,
+        bank_id: Optional[str] = None,
+    ) -> GetQrResponse:
+        """Сгенерировать СБП QR/ссылку по платежу (после init)."""
+        return self._call(
+            _GET_QR,
+            GetQrRequest(payment_id=payment_id, data_type=data_type, bank_id=bank_id),
+        )
+
+    def get_qr_members(self, payment_id: str) -> QrMembersListResponse:
+        """Список банков-участников СБП для платежа."""
+        return self._call(_QR_MEMBERS, QrMembersListRequest(payment_id=payment_id))
+
+    def add_account_qr(
+        self,
+        description: str,
+        *,
+        data_type: Optional[QrDataType] = None,
+        bank_id: Optional[str] = None,
+        redirect_due_date: Optional[str] = None,
+    ) -> AddAccountQrResponse:
+        """Привязать счёт покупателя для СБП-автоплатежей (вернёт QR + RequestKey)."""
+        return self._call(
+            _ADD_ACCOUNT_QR,
+            AddAccountQrRequest(
+                description=description,
+                data_type=data_type,
+                bank_id=bank_id,
+                redirect_due_date=redirect_due_date,
+            ),
+        )
+
+    def get_add_account_qr_state(self, request_key: str) -> AddAccountQrState:
+        """Статус привязки счёта (AccountToken появляется при ACTIVE)."""
+        return self._call(
+            _ADD_ACCOUNT_QR_STATE, GetAddAccountQrStateRequest(request_key=request_key)
+        )
+
+    def charge_qr(
+        self,
+        payment_id: str,
+        account_token: str,
+        *,
+        ip: Optional[str] = None,
+        send_email: Optional[bool] = None,
+        info_email: Optional[str] = None,
+        bank_member_id: Optional[str] = None,
+    ) -> ChargeQrResponse:
+        """СБП-автоплатёж по привязанному счёту (AccountToken)."""
+        return self._call(
+            _CHARGE_QR,
+            ChargeQrRequest(
+                payment_id=payment_id,
+                account_token=account_token,
+                ip=ip,
+                send_email=send_email,
+                info_email=info_email,
+                bank_member_id=bank_member_id,
+            ),
         )
