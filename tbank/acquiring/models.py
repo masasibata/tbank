@@ -8,10 +8,49 @@ from tbank.acquiring.enums import (
     AccountQrStatus,
     CardStatus,
     CardType,
+    FfdVersion,
+    PaymentMethod,
+    PaymentObject,
     PaymentStatus,
     QrDataType,
+    Tax,
+    Taxation,
 )
 from tbank.core.models import Kopecks, TBankModel
+
+# --- Фискализация (чек 54-ФЗ) ---
+
+
+class Payments(TBankModel):
+    electronic: int  # безналичный (обязателен)
+    cash: Optional[int] = None
+    advance_payment: Optional[int] = None
+    credit: Optional[int] = None
+    provision: Optional[int] = None
+
+
+class ReceiptItem(TBankModel):
+    name: str  # ≤128 символов
+    price: Kopecks  # цена за единицу, копейки
+    quantity: float  # количество (дробное допускается)
+    amount: Kopecks  # Price × Quantity, копейки
+    tax: Tax
+    payment_method: Optional[PaymentMethod] = None
+    payment_object: Optional[PaymentObject] = None
+    ean13: Optional[str] = None
+    shop_code: Optional[str] = None
+    measurement_unit: Optional[str] = None  # ФФД 1.2 (обязателен)
+
+
+class Receipt(TBankModel):
+    taxation: Taxation
+    items: List[ReceiptItem]
+    email: Optional[str] = None  # нужен хотя бы один из email/phone
+    phone: Optional[str] = None
+    ffd_version: Optional[FfdVersion] = None
+    payments: Optional[Payments] = None
+    customer: Optional[str] = None  # ФФД 1.2
+    customer_inn: Optional[str] = None  # ФФД 1.2
 
 
 class InitRequest(TBankModel):
@@ -26,6 +65,7 @@ class InitRequest(TBankModel):
     pay_type: Optional[str] = None
     # "Y" — сохранить карту для рекуррента (нужен customer_key)
     recurrent: Optional[str] = None
+    receipt: Optional[Receipt] = None  # чек 54-ФЗ
 
 
 class PaymentResponse(TBankModel):
@@ -80,6 +120,7 @@ class ChargeRequest(TBankModel):
     ip: Optional[str] = Field(default=None, alias="IP")
     send_email: Optional[bool] = None
     info_email: Optional[str] = None
+    receipt: Optional[Receipt] = None
 
 
 class ChargeResponse(PaymentResponse):
@@ -226,7 +267,26 @@ class ChargeQrRequest(TBankModel):
     send_email: Optional[bool] = None
     info_email: Optional[str] = None
     bank_member_id: Optional[str] = None
+    receipt: Optional[Receipt] = None
 
 
 class ChargeQrResponse(PaymentResponse):
     currency: Optional[int] = None
+
+
+# --- Отправка чека при подтверждении (двухстадийные платежи) ---
+
+
+class SendClosingReceiptRequest(TBankModel):
+    payment_id: str
+    receipt: Receipt
+
+
+class SendClosingReceiptResponse(TBankModel):
+    success: bool
+    error_code: str
+    terminal_key: Optional[str] = None
+    payment_id: Optional[str] = None
+    status: Optional[str] = None
+    message: Optional[str] = None
+    details: Optional[str] = None
