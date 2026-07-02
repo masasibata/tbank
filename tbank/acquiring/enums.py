@@ -18,3 +18,15 @@ class PaymentStatus(str, Enum):
     REJECTED = "REJECTED"
     DEADLINE_EXPIRED = "DEADLINE_EXPIRED"
     CANCELED = "CANCELED"
+
+
+class CardStatus(str, Enum):
+    ACTIVE = "A"
+    DELETED = "D"
+    INACTIVE = "I"  # legacy — в новой спеке не встречается
+
+
+class CardType(int, Enum):
+    DEBIT = 0  # карта списания
+    CREDIT = 1  # карта пополнения
+    DEBIT_CREDIT = 2  # пополнения и списания
