@@ -100,3 +100,24 @@ class PaymentObject(str, Enum):
     AGENT_COMMISSION = "agent_commission"
     COMPOSITE = "composite"
     ANOTHER = "another"
+
+
+# --- Привязка карты ---
+
+
+class CheckType(str, Enum):
+    NO = "NO"  # без проверки (default), RebillId не возвращается
+    HOLD = "HOLD"  # нулевая авторизация с возвратом
+    THREE_DS = "3DS"  # проверка 3DS + нулевая авторизация
+    THREE_DS_HOLD = "3DSHOLD"  # 3DS если поддерживается, иначе hold
+
+
+class AddCardStatus(str, Enum):
+    NEW = "NEW"
+    FORM_SHOWED = "FORM_SHOWED"
+    THREE_DS_CHECKING = "3DS_CHECKING"
+    THREE_DS_CHECKED = "3DS_CHECKED"
+    AUTHORIZING = "AUTHORIZING"
+    AUTHORIZED = "AUTHORIZED"
+    COMPLETED = "COMPLETED"  # карта привязана
+    REJECTED = "REJECTED"

@@ -6,8 +6,10 @@ from pydantic import Field
 
 from tbank.acquiring.enums import (
     AccountQrStatus,
+    AddCardStatus,
     CardStatus,
     CardType,
+    CheckType,
     FfdVersion,
     PaymentMethod,
     PaymentObject,
@@ -290,3 +292,58 @@ class SendClosingReceiptResponse(TBankModel):
     status: Optional[str] = None
     message: Optional[str] = None
     details: Optional[str] = None
+
+
+# --- Привязка карты (без оплаты) + статус возврата по СБП ---
+
+
+class AddCardRequest(TBankModel):
+    customer_key: str
+    check_type: Optional[CheckType] = None
+    ip: Optional[str] = Field(default=None, alias="IP")
+    resident_state: Optional[bool] = None
+
+
+class AddCardResponse(TBankModel):
+    success: bool
+    error_code: str
+    terminal_key: Optional[str] = None
+    customer_key: Optional[str] = None
+    request_key: Optional[str] = None
+    payment_url: Optional[str] = Field(default=None, alias="PaymentURL")
+    message: Optional[str] = None
+    details: Optional[str] = None
+
+
+class GetAddCardStateRequest(TBankModel):
+    request_key: str
+
+
+class AddCardState(TBankModel):
+    success: bool
+    error_code: str
+    terminal_key: Optional[str] = None
+    customer_key: Optional[str] = None
+    request_key: Optional[str] = None
+    status: Optional[AddCardStatus] = None
+    card_id: Optional[str] = None
+    rebill_id: Optional[str] = None
+    message: Optional[str] = None
+    details: Optional[str] = None
+
+
+class GetQrStateRequest(TBankModel):
+    payment_id: str
+
+
+class QrState(TBankModel):
+    """Статус возврата платежа по СБП."""
+
+    success: bool
+    error_code: str
+    status: Optional[str] = None  # enum статуса возврата — досверить по боевому API
+    qr_cancel_code: Optional[str] = None
+    qr_cancel_message: Optional[str] = None
+    order_id: Optional[str] = None
+    amount: Optional[Kopecks] = None  # сумма возврата, копейки
+    message: Optional[str] = None
