@@ -38,7 +38,7 @@ class _CallMixin:
 
     @staticmethod
     def _prepare_payload(
-        endpoint: "Endpoint[Any, Any]", request: Optional[BaseModel]
+        endpoint: "Endpoint[Any]", request: Optional[BaseModel]
     ) -> Tuple[Optional[Dict[str, Any]], Optional[Dict[str, Any]]]:
         """Возвращает (json_body, query_params): GET → query, иначе → тело.
 
@@ -73,7 +73,7 @@ class BaseAsyncClient(_CallMixin):
 
     async def _call(
         self,
-        endpoint: "Endpoint[Any, TResp]",
+        endpoint: "Endpoint[TResp]",
         request: Optional[BaseModel] = None,
     ) -> TResp:
         transport = self._pick_transport(endpoint.secured)
@@ -137,7 +137,7 @@ class BaseSyncClient(_CallMixin):
 
     def _call(
         self,
-        endpoint: "Endpoint[Any, TResp]",
+        endpoint: "Endpoint[TResp]",
         request: Optional[BaseModel] = None,
     ) -> TResp:
         transport = self._pick_transport(endpoint.secured)

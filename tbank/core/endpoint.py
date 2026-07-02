@@ -5,14 +5,13 @@ from typing import Generic, Optional, Type, TypeVar
 
 from pydantic import BaseModel
 
-TReq = TypeVar("TReq", bound=BaseModel)
 TResp = TypeVar("TResp", bound=BaseModel)
 
 
 @dataclass(frozen=True)
-class Endpoint(Generic[TReq, TResp]):
+class Endpoint(Generic[TResp]):
     method: str
     path: str
     response_model: Type[TResp]
-    request_model: Optional[Type[TReq]] = None
+    request_model: Optional[Type[BaseModel]] = None
     secured: bool = False  # True → идёт на secured-хост (mTLS)
