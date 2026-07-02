@@ -12,6 +12,10 @@ from tbank.business.models import (
     Account,
     BankStatement,
     BankStatementParams,
+    CreatePaymentRequest,
+    DocumentsStatusRequest,
+    DocumentsStatusResponse,
+    PaymentStatusResponse,
     StatementOperation,
     StatementPage,
     StatementParams,
@@ -25,11 +29,17 @@ from tbank.core.transport import AsyncTransport
 
 PROD_URL = "https://business.tbank.ru/openapi"
 SANDBOX_URL = "https://business.tbank.ru/openapi/sandbox"
+SECURED_URL = "https://secured-openapi.tbank.ru"
+SANDBOX_SECURED_URL = "https://business.tbank.ru/openapi/sandbox/secured"
 
 _ACCOUNTS_PATH = "/api/v2/bank-accounts"
+_RUBLE_TRANSFER_PATH = "/api/v1/payment/ruble-transfer/pay"
 _STATEMENT = Endpoint("GET", "/api/v1/statement", StatementPage, StatementParams)
 _BANK_STATEMENT = Endpoint(
     "GET", "/api/v1/bank-statement", BankStatement, BankStatementParams
+)
+_DOCUMENTS_STATUS = Endpoint(
+    "POST", "/api/v1/payment/status", DocumentsStatusResponse, DocumentsStatusRequest
 )
 _ACCOUNTS_ADAPTER = TypeAdapter(List[Account])
 
@@ -42,15 +52,30 @@ class BusinessClient(BaseAsyncClient):
         token: str,
         *,
         base_url: Optional[str] = None,
+        secured_base_url: Optional[str] = None,
         sandbox: bool = False,
+        cert: Optional[Any] = None,
+        verify: Any = True,
         retry: Optional[RetryPolicy] = None,
         transport: Optional[AsyncTransport] = None,
+        secured_transport: Optional[AsyncTransport] = None,
     ) -> None:
         resolved = base_url or (SANDBOX_URL if sandbox else PROD_URL)
         transport = transport or AsyncTransport(
             base_url=resolved, auth=BearerAuth(token), retry=retry
         )
-        super().__init__(transport)
+        if secured_transport is None and cert is not None:
+            secured_resolved = secured_base_url or (
+                SANDBOX_SECURED_URL if sandbox else SECURED_URL
+            )
+            secured_transport = AsyncTransport(
+                base_url=secured_resolved,
+                auth=BearerAuth(token),
+                retry=retry,
+                cert=cert,
+                verify=verify,
+            )
+        super().__init__(transport, secured_transport)
 
     def _parse_body(self, response: httpx.Response) -> Any:
         # parse_float=Decimal — точные денежные суммы без float-погрешности.
@@ -87,3 +112,26 @@ class BusinessClient(BaseAsyncClient):
     async def get_bank_statement(self, params: BankStatementParams) -> BankStatement:
         """Выписка за период: сальдо, обороты и операции."""
         return await self._call(_BANK_STATEMENT, params)
+
+    async def create_ruble_payment(self, payment: CreatePaymentRequest) -> str:
+        """Исполнить рублёвый платёж (mTLS). Возвращает id платежа (ключ идемпотентности)."""
+        transport = self._pick_transport(secured=True)
+        body = payment.model_dump(by_alias=True, exclude_none=True, mode="json")
+        response = await transport.request("POST", _RUBLE_TRANSFER_PATH, json=body)
+        self._raise_for_http(response)
+        return payment.id
+
+    async def get_payment_status(self, payment_id: str) -> PaymentStatusResponse:
+        """Статус платежа по его id (mTLS)."""
+        transport = self._pick_transport(secured=True)
+        response = await transport.request("GET", f"/api/v1/payment/{payment_id}")
+        self._raise_for_http(response)
+        return PaymentStatusResponse.model_validate(self._parse_body(response))
+
+    async def get_documents_status(
+        self, document_ids: List[str]
+    ) -> DocumentsStatusResponse:
+        """Статусы пачки документов по их id (обычный хост)."""
+        return await self._call(
+            _DOCUMENTS_STATUS, DocumentsStatusRequest(document_ids=document_ids)
+        )
