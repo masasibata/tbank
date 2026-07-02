@@ -23,10 +23,15 @@ asyncio.run(main())
 
 ```python
 from tbank.acquiring.sync import AcquiringClient
+from tbank.acquiring.models import InitRequest
 
 with AcquiringClient(terminal_key="...", password="...") as client:
     payment = client.init(InitRequest(amount=150000, order_id="A-1"))
 ```
+
+:::{tip}
+Суммы в эквайринге — **в копейках** (`int`): `150000` = 1500 ₽.
+:::
 
 ## Открытый банк — счета и выписки
 
@@ -38,7 +43,9 @@ from tbank.business.models import StatementParams
 
 async def main() -> None:
     client = BusinessClient(token="...")          # self-service токен из ЛК
-    accounts = await client.get_accounts()        # счета + балансы (Decimal)
+    for acc in await client.get_accounts():       # счета + балансы (Decimal)
+        print(acc.account_number, acc.balance.otb if acc.balance else None)
+
     params = StatementParams(
         account_number="40802...",
         from_=datetime(2026, 1, 1, tzinfo=timezone.utc),
@@ -48,38 +55,12 @@ async def main() -> None:
     await client.aclose()
 ```
 
-## Рублёвый платёж через mTLS
+:::{tip}
+Суммы в открытом банке — **`Decimal` в рублях** (без float-погрешности).
+:::
 
-```python
-from decimal import Decimal
-from tbank.business import BusinessClient
-from tbank.business.models import CreatePaymentRequest, PaymentFrom, ReceiverRequisites
+## Что дальше
 
-client = BusinessClient(token="...", cert=("client.pem", "key.pem"))
-pid = await client.create_ruble_payment(
-    CreatePaymentRequest(
-        from_=PaymentFrom(account_number="40802..."),
-        to=ReceiverRequisites(
-            name="ООО Ромашка", inn="7700000000",
-            account_number="40702...", bik="044525974",
-        ),
-        purpose="Оплата по счёту 1",
-        amount=Decimal("12345.67"),
-    )
-)
-```
-
-## Обработка ошибок
-
-```python
-from tbank.core.errors import TBankAPIError, TBankNetworkError, InsufficientFundsError
-
-try:
-    await client.charge(payment_id, rebill_id)
-except InsufficientFundsError:
-    ...
-except TBankAPIError as exc:
-    print(exc.code, exc.message)
-except TBankNetworkError:
-    ...
-```
+- [Аутентификация](authentication.md) — Token-подпись, Bearer, mTLS.
+- [Обработка ошибок](errors.md) — иерархия исключений.
+- [Эквайринг](acquiring.md) и [Открытый банк](business.md) — полный справочник методов.
