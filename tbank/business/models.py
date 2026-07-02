@@ -1,13 +1,25 @@
 from __future__ import annotations
 
+import uuid
 from datetime import date, datetime
-from typing import List, Optional
+from decimal import Decimal
+from typing import Annotated, Any, Dict, List, Optional
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, PlainSerializer
 from pydantic.alias_generators import to_camel
 
-from tbank.business.enums import AccountType, OperationStatus, TypeOfOperation
+from tbank.business.enums import (
+    AccountType,
+    OperationStatus,
+    PaymentStatus,
+    TypeOfOperation,
+)
 from tbank.core.models import Rubles
+
+# Суммы на запись: Decimal у пользователя, но в JSON уходит числом (T-API ждёт number).
+WriteRubles = Annotated[
+    Decimal, PlainSerializer(lambda v: float(v), return_type=float, when_used="json")
+]
 
 
 class BusinessModel(BaseModel):
@@ -122,3 +134,77 @@ class BankStatement(BusinessModel):
     outcome: Optional[Rubles] = None
     saldo_out: Optional[Rubles] = None
     operation: List[BankStatementOperation] = Field(default_factory=list)
+
+
+# --- Платежи (рублёвая платёжка, mTLS) ---
+
+
+class PaymentFrom(BusinessModel):
+    account_number: str
+
+
+class ReceiverRequisites(BusinessModel):
+    name: str
+    inn: str
+    account_number: str
+    bik: str
+    kpp: Optional[str] = None
+    bank_name: Optional[str] = None
+    corr_account_number: Optional[str] = None
+
+
+class ThirdParty(BusinessModel):
+    inn: str
+    kpp: str
+    name: Optional[str] = None
+
+
+class TaxPaymentParameters(BusinessModel):
+    payer_status: str
+    kbk: str
+    oktmo: str
+    evidence: str
+    period: str  # формат ДД.ММ.ГГГГ (строка, НЕ дата)
+    doc_number: str
+    doc_date: str  # формат ДД.ММ.ГГГГ
+    third_party: Optional[ThirdParty] = None
+
+
+class CreatePaymentRequest(BusinessModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))  # ключ идемпотентности
+    from_: PaymentFrom = Field(alias="from")
+    to: ReceiverRequisites
+    purpose: str
+    amount: WriteRubles
+    document_number: Optional[int] = None
+    execution_order: Optional[int] = None
+    due_date: Optional[datetime] = None
+    uin: Optional[str] = None
+    tax: Optional[TaxPaymentParameters] = None
+    revenue_type_code: Optional[str] = None
+    meta: Optional[Dict[str, Any]] = None
+
+
+class PaymentStatusResponse(BusinessModel):
+    status: PaymentStatus
+    error_message: Optional[str] = None
+    meta: Optional[Dict[str, Any]] = None
+
+
+class DocumentsStatusRequest(BusinessModel):
+    document_ids: List[str]
+
+
+class DocumentStatus(BusinessModel):
+    document_id: Optional[str] = None
+    status: Optional[str] = None
+
+
+class DocumentStatusError(BusinessModel):
+    document_id: Optional[str] = None
+    error_message: Optional[str] = None
+
+
+class DocumentsStatusResponse(BusinessModel):
+    result: List[DocumentStatus] = Field(default_factory=list)
+    result_error: List[DocumentStatusError] = Field(default_factory=list)

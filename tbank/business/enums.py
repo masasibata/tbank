@@ -19,3 +19,10 @@ class OperationStatus(str, Enum):
 class TypeOfOperation(str, Enum):
     CREDIT = "Credit"
     DEBIT = "Debit"
+
+
+class PaymentStatus(str, Enum):
+    IN_PROGRESS = "IN_PROGRESS"
+    EXECUTED = "EXECUTED"
+    FAILED = "FAILED"
+    CANCELLED = "CANCELLED"
