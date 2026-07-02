@@ -29,7 +29,7 @@ def compute_delay(
     """Задержка перед попыткой `attempt` (1-based)."""
     if retry_after is not None:
         return min(retry_after, policy.backoff_max)
-    delay = min(policy.backoff_base * (2 ** (attempt - 1)), policy.backoff_max)
+    delay = min(policy.backoff_base * (2.0 ** (attempt - 1)), policy.backoff_max)
     if policy.jitter:
         delay *= 0.5 + random.random() / 2
     return delay

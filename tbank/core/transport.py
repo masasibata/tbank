@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import time
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Tuple
 
 import httpx
 
@@ -32,7 +32,9 @@ class _TransportBase:
             "User-Agent": user_agent,
         }
 
-    def _prepare(self, json: Body, headers: Optional[Dict[str, str]]) -> tuple:
+    def _prepare(
+        self, json: Body, headers: Optional[Dict[str, str]]
+    ) -> Tuple[Body, Headers]:
         merged: Headers = {**self._base_headers, **(headers or {})}
         return self._auth.apply(json, merged)
 

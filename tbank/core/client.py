@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from typing import Optional, TypeVar
+from typing import Any, Dict, Optional, TypeVar
+
+import httpx
 
 from tbank.core.endpoint import Endpoint
 from tbank.core.errors import build_api_error
@@ -11,17 +13,17 @@ TResp = TypeVar("TResp", bound=TBankModel)
 
 
 class _CallMixin:
-    def _check_error(self, data: dict) -> None:
+    def _check_error(self, data: Dict[str, Any]) -> None:
         """Переопределяется в доменных клиентах для ошибок уровня тела ответа."""
 
     @staticmethod
-    def _body(request: Optional[TBankModel]) -> Optional[dict]:
+    def _body(request: Optional[TBankModel]) -> Optional[Dict[str, Any]]:
         if request is None:
             return None
         return request.model_dump(by_alias=True, exclude_none=True)
 
     @staticmethod
-    def _raise_for_http(response) -> None:
+    def _raise_for_http(response: httpx.Response) -> None:
         if response.status_code >= 400:
             raise build_api_error(
                 code=str(response.status_code),
@@ -36,7 +38,7 @@ class BaseAsyncClient(_CallMixin):
 
     async def _call(
         self,
-        endpoint: "Endpoint[TBankModel, TResp]",
+        endpoint: "Endpoint[Any, TResp]",
         request: Optional[TBankModel] = None,
     ) -> TResp:
         response = await self._transport.request(
@@ -63,7 +65,7 @@ class BaseSyncClient(_CallMixin):
 
     def _call(
         self,
-        endpoint: "Endpoint[TBankModel, TResp]",
+        endpoint: "Endpoint[Any, TResp]",
         request: Optional[TBankModel] = None,
     ) -> TResp:
         response = self._transport.request(
