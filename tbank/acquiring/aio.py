@@ -5,12 +5,15 @@ from typing import Any, Dict, List, Optional
 from pydantic import TypeAdapter
 
 from tbank.acquiring.auth import TokenSignatureAuth
-from tbank.acquiring.enums import QrDataType
+from tbank.acquiring.enums import CheckType, QrDataType
 from tbank.acquiring.errors import raise_for_acquiring_result
 from tbank.acquiring.models import (
     AddAccountQrRequest,
     AddAccountQrResponse,
     AddAccountQrState,
+    AddCardRequest,
+    AddCardResponse,
+    AddCardState,
     AddCustomerRequest,
     CancelRequest,
     CancelResponse,
@@ -24,15 +27,18 @@ from tbank.acquiring.models import (
     Customer,
     CustomerRequest,
     GetAddAccountQrStateRequest,
+    GetAddCardStateRequest,
     GetCardListRequest,
     GetQrRequest,
     GetQrResponse,
+    GetQrStateRequest,
     GetStateRequest,
     GetStateResponse,
     InitRequest,
     InitResponse,
     QrMembersListRequest,
     QrMembersListResponse,
+    QrState,
     Receipt,
     RemoveCardRequest,
     RemoveCardResponse,
@@ -70,6 +76,11 @@ _CHARGE_QR = Endpoint("POST", "/ChargeQr", ChargeQrResponse, ChargeQrRequest)
 _SEND_CLOSING_RECEIPT = Endpoint(
     "POST", "/SendClosingReceipt", SendClosingReceiptResponse, SendClosingReceiptRequest
 )
+_ADD_CARD = Endpoint("POST", "/AddCard", AddCardResponse, AddCardRequest)
+_ADD_CARD_STATE = Endpoint(
+    "POST", "/GetAddCardState", AddCardState, GetAddCardStateRequest
+)
+_GET_QR_STATE = Endpoint("POST", "/GetQrState", QrState, GetQrStateRequest)
 _CARDS_ADAPTER = TypeAdapter(List[Card])
 
 
@@ -275,3 +286,32 @@ class AcquiringClient(BaseAsyncClient):
             _SEND_CLOSING_RECEIPT,
             SendClosingReceiptRequest(payment_id=payment_id, receipt=receipt),
         )
+
+    async def add_card(
+        self,
+        customer_key: str,
+        *,
+        check_type: Optional[CheckType] = None,
+        ip: Optional[str] = None,
+        resident_state: Optional[bool] = None,
+    ) -> AddCardResponse:
+        """Инициировать привязку карты покупателя (redirect на PaymentURL, без оплаты)."""
+        return await self._call(
+            _ADD_CARD,
+            AddCardRequest(
+                customer_key=customer_key,
+                check_type=check_type,
+                ip=ip,
+                resident_state=resident_state,
+            ),
+        )
+
+    async def get_add_card_state(self, request_key: str) -> AddCardState:
+        """Статус привязки карты (COMPLETED → card_id/rebill_id)."""
+        return await self._call(
+            _ADD_CARD_STATE, GetAddCardStateRequest(request_key=request_key)
+        )
+
+    async def get_qr_state(self, payment_id: str) -> QrState:
+        """Статус возврата платежа по СБП."""
+        return await self._call(_GET_QR_STATE, GetQrStateRequest(payment_id=payment_id))
