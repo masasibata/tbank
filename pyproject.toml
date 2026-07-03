@@ -1,6 +1,6 @@
 [project]
 name = "tbank"
-version = "1.13.0"
+version = "1.14.0"
 description = "Асинхронный/синхронный Python SDK для API Т-Банка (эквайринг и открытый банк)."
 authors = [{ name = "masasibata" }]
 license = "MIT"
