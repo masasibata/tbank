@@ -45,6 +45,7 @@ async with AcquiringClient(terminal_key="...", password="...") as client:
 | [`tbank.dolyame`](dolyame.md) | Оплата частями (BNPL): жизненный цикл заказа, возвраты, доставка |
 | [`tbank.tid`](tid.md) | T-ID: вход через Т-Банк (OAuth 2.0/OIDC), учётные данные, документы, статусы, компания, делегированная идентификация |
 | [`tbank.selfemployed`](selfemployed.md) | Выплаты самозанятым (e2c): анкеты, платёжные реестры, подписание, оплата, чеки |
+| [`tbank.salary`](salary.md) | Зарплатный проект: анкеты сотрудников, платёжные реестры, создание/подписание/оплата/отмена |
 
 ```{toctree}
 :maxdepth: 2
@@ -68,6 +69,7 @@ business
 dolyame
 tid
 selfemployed
+salary
 ```
 
 ```{toctree}

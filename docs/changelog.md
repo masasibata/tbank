@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.3.0
+
+- Новый домен **`tbank.salary`** — зарплатный проект:
+  - Сотрудники: `add_employees_by_requisites`, `create_employees` (черновики анкет),
+    `list_employees` + опрос результатов.
+  - Платёжные реестры: `create_payment_registry`, `create_and_submit_registry`
+    (создать и подписать одним вызовом), `submit_payment_registry`, `pay_payment_registry`,
+    `cancel_payment_registry` + опрос результатов; `list_payment_registries`,
+    `get_payment_registry`.
+  - Async-модель через клиентский `correlationId` (оплата — ключ идемпотентности `id`).
+    Подписание/оплата/отмена/список реестров — на secured-хосте по mTLS, анкеты и
+    создание черновика — на обычном хосте по Bearer. Суммы — `Decimal` в рублях.
+
 ## 1.2.0
 
 - Новый домен **`tbank.selfemployed`** — выплаты самозанятым (e2c):
