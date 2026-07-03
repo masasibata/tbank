@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Optional
 
 import httpx
 
@@ -8,15 +8,12 @@ from tbank.core.auth import BearerAuth
 from tbank.core.client import BaseSyncClient
 from tbank.core.errors import TBankAPIError
 from tbank.core.retry import RetryPolicy
-from tbank.core.transport import SyncTransport
+from tbank.core.transport import CertTypes, SyncTransport, VerifyTypes
+from tbank.core.urls import SANDBOX_SECURED_URL, SECURED_URL
+from tbank.overnight._endpoints import INFO as _INFO
+from tbank.overnight._endpoints import REPLENISH as _REPLENISH
 from tbank.overnight.errors import error_from_overnight_response
 from tbank.overnight.models import OvernightInfo
-
-SECURED_URL = "https://secured-openapi.tbank.ru"
-SANDBOX_SECURED_URL = "https://business.tbank.ru/openapi/sandbox/secured"
-
-_INFO = "/api/v1/overnight/info"
-_REPLENISH = "/api/v1/overnight/replenish"
 
 
 class OvernightClient(BaseSyncClient):
@@ -32,8 +29,8 @@ class OvernightClient(BaseSyncClient):
         *,
         base_url: Optional[str] = None,
         sandbox: bool = False,
-        cert: Optional[Any] = None,
-        verify: Any = True,
+        cert: Optional[CertTypes] = None,
+        verify: VerifyTypes = True,
         retry: Optional[RetryPolicy] = None,
         transport: Optional[SyncTransport] = None,
     ) -> None:
@@ -52,17 +49,14 @@ class OvernightClient(BaseSyncClient):
 
     def get_overnight_info(self, agreement_number: str) -> OvernightInfo:
         """Сводка по счёту овернайт: суммы, ставка, автоплатёж, текущая сделка."""
-        response = self._transport.request(
-            "POST", _INFO, params={"agreementNumber": agreement_number}
+        return self._send(
+            "POST", _INFO, OvernightInfo, params={"agreementNumber": agreement_number}
         )
-        self._raise_for_http(response)
-        return OvernightInfo.model_validate(self._parse_body(response))
 
     def replenish_overnight(self, agreement_number: str, amount: str) -> None:
         """Пополнить счёт овернайт на указанную сумму."""
-        response = self._transport.request(
+        self._send(
             "POST",
             _REPLENISH,
             params={"agreementNumber": agreement_number, "amount": amount},
         )
-        self._raise_for_http(response)

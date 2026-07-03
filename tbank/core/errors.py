@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from typing import Dict, Optional, Type
+from typing import Any, Dict, Optional, Type
+
+import httpx
 
 
 class TBankError(Exception):
@@ -104,4 +106,44 @@ def build_api_error(
         details=details,
         http_status=http_status,
         status=status,
+    )
+
+
+# HTTP-статус -> класс исключения (общий формат ошибок открытого банка T-API).
+STATUS_ERROR_MAP: Dict[int, Type[TBankAPIError]] = {
+    400: ValidationError,
+    401: AuthenticationError,
+    403: ForbiddenError,
+    404: InvalidRequestError,
+    422: ValidationError,
+    429: RateLimitError,
+    500: ServerError,
+    502: ServerError,
+    503: ServerError,
+    504: ServerError,
+}
+
+
+def error_from_tapi_response(
+    response: httpx.Response, *, fallback: str = "request failed"
+) -> TBankAPIError:
+    """Исключение из T-API error-ответа ({errorId, errorMessage, errorCode,
+    errorDetails})."""
+    status = response.status_code
+    try:
+        raw = response.json()
+    except ValueError:
+        raw = None
+    data: Dict[str, Any] = raw if isinstance(raw, dict) else {}
+
+    code = str(data.get("errorCode") or status)
+    message = data.get("errorMessage") or response.text or fallback
+    details = data.get("errorDetails")
+    cls = STATUS_ERROR_MAP.get(status, TBankAPIError)
+    return cls(
+        code=code,
+        message=message,
+        http_status=status,
+        error_id=data.get("errorId"),
+        details=str(details) if details is not None else None,
     )

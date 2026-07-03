@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Optional
 
 import httpx
 
@@ -9,14 +9,10 @@ from tbank.core.client import BaseAsyncClient
 from tbank.core.errors import TBankAPIError
 from tbank.core.retry import RetryPolicy
 from tbank.core.transport import AsyncTransport
+from tbank.core.urls import PROD_URL, SANDBOX_URL
+from tbank.merchant_acquiring import _endpoints
 from tbank.merchant_acquiring.errors import error_from_merchant_acquiring_response
 from tbank.merchant_acquiring.models import OperationList, TerminalsPage
-
-PROD_URL = "https://business.tbank.ru/openapi"
-SANDBOX_URL = "https://business.tbank.ru/openapi/sandbox"
-
-_TERMINALS = "/api/v1/tacq/terminals"
-_OPERATIONS = "/api/v1/tacq/operations/terminal"
 
 
 class MerchantAcquiringClient(BaseAsyncClient):
@@ -45,20 +41,16 @@ class MerchantAcquiringClient(BaseAsyncClient):
 
     async def list_terminals(self, *, page: int = 0, size: int = 50) -> TerminalsPage:
         """Список терминалов торгового эквайринга (постранично)."""
-        response = await self._transport.request(
-            "GET", _TERMINALS, params={"page": page, "size": size}
+        return await self._get(
+            _endpoints.TERMINALS, TerminalsPage, params={"page": page, "size": size}
         )
-        self._raise_for_http(response)
-        return TerminalsPage.model_validate(self._parse_body(response))
 
     async def list_operations(
         self, terminal_key: str, from_date: str, till: str, *, limit: int
     ) -> OperationList:
         """Операции по терминалу за период (даты — `YYYY-MM-DD`)."""
-        response = await self._transport.request(
-            "GET",
-            f"{_OPERATIONS}/{terminal_key}",
+        return await self._get(
+            _endpoints.operations_path(terminal_key),
+            OperationList,
             params={"from": from_date, "till": till, "limit": limit},
         )
-        self._raise_for_http(response)
-        return OperationList.model_validate(self._parse_body(response))

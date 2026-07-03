@@ -485,8 +485,8 @@ def test_client_construction_branches(monkeypatch):
         def __init__(self, **kw):
             s_calls.append(kw)
 
-    monkeypatch.setattr("tbank.salary.aio.AsyncTransport", FakeAsync)
-    monkeypatch.setattr("tbank.salary.sync.SyncTransport", FakeSync)
+    monkeypatch.setattr("tbank.core.transport.AsyncTransport", FakeAsync)
+    monkeypatch.setattr("tbank.core.transport.SyncTransport", FakeSync)
 
     plain = SalaryClient(token="x")
     assert plain._secured_transport is None

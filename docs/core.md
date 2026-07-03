@@ -35,6 +35,17 @@
 
 .. autoclass:: tbank.core.transport.SyncTransport
    :members:
+
+.. autofunction:: tbank.core.transport.build_sync_transports
+
+.. autofunction:: tbank.core.transport.build_async_transports
+```
+
+## Адреса хостов
+
+```{eval-rst}
+.. automodule:: tbank.core.urls
+   :members:
 ```
 
 ## Модели и типы

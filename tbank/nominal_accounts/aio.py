@@ -1,18 +1,32 @@
 from __future__ import annotations
 
-import json
-import uuid
-from decimal import Decimal
-from typing import Any, Dict, Optional, Type, TypeVar, Union, overload
+from typing import Optional
 
 import httpx
-from pydantic import BaseModel, TypeAdapter
 
-from tbank.core.auth import BearerAuth
 from tbank.core.client import BaseAsyncClient
+from tbank.core.client import ensure_idempotency_key as _idem
+from tbank.core.client import page_params as _page
 from tbank.core.errors import TBankAPIError
 from tbank.core.retry import RetryPolicy
-from tbank.core.transport import AsyncTransport
+from tbank.core.transport import (
+    AsyncTransport,
+    CertTypes,
+    VerifyTypes,
+    build_async_transports,
+)
+from tbank.core.urls import (
+    PROD_URL,
+    SANDBOX_SECURED_URL,
+    SANDBOX_URL,
+    SECURED_URL,
+)
+from tbank.nominal_accounts._endpoints import ADD_CARD as _ADD_CARD
+from tbank.nominal_accounts._endpoints import BANK_DETAILS as _BANK_DETAILS
+from tbank.nominal_accounts._endpoints import BENEFICIARY as _BENEFICIARY
+from tbank.nominal_accounts._endpoints import NA as _NA
+from tbank.nominal_accounts._endpoints import NA_V2 as _NA_V2
+from tbank.nominal_accounts._endpoints import PAYMENT as _PAYMENT
 from tbank.nominal_accounts.errors import error_from_nominal_response
 from tbank.nominal_accounts.models import (
     AddCardRequest,
@@ -51,22 +65,6 @@ from tbank.nominal_accounts.models import (
     UpdateRecipientBankDetailsRequest,
 )
 
-PROD_URL = "https://business.tbank.ru/openapi"
-SANDBOX_URL = "https://business.tbank.ru/openapi/sandbox"
-SECURED_URL = "https://secured-openapi.tbank.ru"
-SANDBOX_SECURED_URL = "https://business.tbank.ru/openapi/sandbox/secured"
-
-_NA = "/api/v1/nominal-accounts"
-_NA_V2 = "/api/v2/nominal-accounts"
-
-T = TypeVar("T", bound=BaseModel)
-
-# Ответы-полиморфы (oneOf) валидируются через TypeAdapter по дискриминатору.
-_BENEFICIARY: TypeAdapter[BeneficiaryResponse] = TypeAdapter(BeneficiaryResponse)
-_ADD_CARD: TypeAdapter[AddCardRequestResponse] = TypeAdapter(AddCardRequestResponse)
-_BANK_DETAILS: TypeAdapter[BankDetailsResponse] = TypeAdapter(BankDetailsResponse)
-_PAYMENT: TypeAdapter[PaymentResponse] = TypeAdapter(PaymentResponse)
-
 
 class NominalAccountsClient(BaseAsyncClient):
     """Асинхронный клиент номинальных счетов: бенефициары и их банковские
@@ -80,6 +78,8 @@ class NominalAccountsClient(BaseAsyncClient):
     генерируется автоматически).
     """
 
+    decimal_body = True
+
     def __init__(
         self,
         token: str,
@@ -87,98 +87,27 @@ class NominalAccountsClient(BaseAsyncClient):
         base_url: Optional[str] = None,
         secured_base_url: Optional[str] = None,
         sandbox: bool = False,
-        cert: Optional[Any] = None,
-        verify: Any = True,
+        cert: Optional[CertTypes] = None,
+        verify: VerifyTypes = True,
         retry: Optional[RetryPolicy] = None,
         transport: Optional[AsyncTransport] = None,
         secured_transport: Optional[AsyncTransport] = None,
     ) -> None:
-        resolved = base_url or (SANDBOX_URL if sandbox else PROD_URL)
-        transport = transport or AsyncTransport(
-            base_url=resolved, auth=BearerAuth(token), retry=retry
+        transport, secured_transport = build_async_transports(
+            token,
+            base_url=base_url or (SANDBOX_URL if sandbox else PROD_URL),
+            secured_base_url=secured_base_url
+            or (SANDBOX_SECURED_URL if sandbox else SECURED_URL),
+            cert=cert,
+            verify=verify,
+            retry=retry,
+            transport=transport,
+            secured_transport=secured_transport,
         )
-        if secured_transport is None and cert is not None:
-            secured_resolved = secured_base_url or (
-                SANDBOX_SECURED_URL if sandbox else SECURED_URL
-            )
-            secured_transport = AsyncTransport(
-                base_url=secured_resolved,
-                auth=BearerAuth(token),
-                retry=retry,
-                cert=cert,
-                verify=verify,
-            )
         super().__init__(transport, secured_transport)
-
-    def _parse_body(self, response: httpx.Response) -> Any:
-        # parse_float=Decimal — точные денежные суммы без float-погрешности.
-        return json.loads(response.text or "null", parse_float=Decimal)
 
     def _error_from_response(self, response: httpx.Response) -> TBankAPIError:
         return error_from_nominal_response(response)
-
-    # --- Низкоуровневые помощники ---
-
-    async def _get(
-        self,
-        path: str,
-        parser: Union[Type[T], TypeAdapter[T]],
-        *,
-        params: Optional[Dict[str, Any]] = None,
-        secured: bool = False,
-    ) -> T:
-        response = await self._pick_transport(secured).request(
-            "GET", path, params=params
-        )
-        self._raise_for_http(response)
-        return _parse(parser, self._parse_body(response))
-
-    @overload
-    async def _send(
-        self,
-        method: str,
-        path: str,
-        parser: Union[Type[T], TypeAdapter[T]],
-        *,
-        body: Optional[BaseModel] = ...,
-        idempotency_key: Optional[str] = ...,
-        secured: bool = ...,
-    ) -> T: ...
-
-    @overload
-    async def _send(
-        self,
-        method: str,
-        path: str,
-        parser: None = ...,
-        *,
-        body: Optional[BaseModel] = ...,
-        idempotency_key: Optional[str] = ...,
-        secured: bool = ...,
-    ) -> None: ...
-
-    async def _send(
-        self,
-        method: str,
-        path: str,
-        parser: Any = None,
-        *,
-        body: Optional[BaseModel] = None,
-        idempotency_key: Optional[str] = None,
-        secured: bool = False,
-    ) -> Any:
-        headers = (
-            {"Idempotency-Key": idempotency_key}
-            if idempotency_key is not None
-            else None
-        )
-        response = await self._pick_transport(secured).request(
-            method, path, json=_dump(body), headers=headers
-        )
-        self._raise_for_http(response)
-        if parser is None:
-            return None
-        return _parse(parser, self._parse_body(response))
 
     # --- Бенефициары ---
 
@@ -717,24 +646,3 @@ class NominalAccountsClient(BaseAsyncClient):
             TransferResponse,
             secured=True,
         )
-
-
-def _dump(body: Optional[BaseModel]) -> Optional[Dict[str, Any]]:
-    if body is None:
-        return None
-    return body.model_dump(by_alias=True, exclude_none=True, mode="json")
-
-
-def _parse(parser: Union[Type[T], TypeAdapter[T]], data: Any) -> T:
-    if isinstance(parser, TypeAdapter):
-        return parser.validate_python(data)
-    return parser.model_validate(data)
-
-
-def _page(offset: Optional[int], limit: Optional[int], **extra: Any) -> Dict[str, Any]:
-    params: Dict[str, Any] = {"offset": offset, "limit": limit, **extra}
-    return {k: v for k, v in params.items() if v is not None}
-
-
-def _idem(idempotency_key: Optional[str]) -> str:
-    return idempotency_key or str(uuid.uuid4())

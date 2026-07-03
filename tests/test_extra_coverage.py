@@ -57,7 +57,7 @@ async def test_async_retries_on_network_error_then_succeeds():
         client=httpx.AsyncClient(transport=httpx.MockTransport(handler)),
         retry=FAST,
     )
-    resp = await transport.request("POST", "/Init", json={"a": 1})
+    resp = await transport.request("GET", "/GetState")
     assert resp.status_code == 200
     assert calls["n"] == 2
     await transport.aclose()
@@ -103,7 +103,7 @@ def test_sync_retries_on_503_then_succeeds():
         client=httpx.Client(transport=httpx.MockTransport(handler)),
         retry=FAST,
     )
-    resp = transport.request("POST", "/Init", json={"a": 1})
+    resp = transport.request("GET", "/GetState")
     assert resp.status_code == 200
     assert calls["n"] == 2
     transport.close()
@@ -166,7 +166,7 @@ def test_sync_retries_on_network_error_then_succeeds():
         client=httpx.Client(transport=httpx.MockTransport(handler)),
         retry=FAST,
     )
-    resp = transport.request("POST", "/Init", json={"a": 1})
+    resp = transport.request("GET", "/GetState")
     assert resp.status_code == 200
     assert calls["n"] == 2
     transport.close()
