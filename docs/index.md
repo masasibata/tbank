@@ -46,6 +46,19 @@ async with AcquiringClient(terminal_key="...", password="...") as client:
 | [`tbank.tid`](tid.md) | T-ID: вход через Т-Банк (OAuth 2.0/OIDC), учётные данные, документы, статусы, компания, делегированная идентификация |
 | [`tbank.selfemployed`](selfemployed.md) | Выплаты самозанятым (e2c): анкеты, платёжные реестры, подписание, оплата, чеки |
 | [`tbank.salary`](salary.md) | Зарплатный проект: анкеты сотрудников, платёжные реестры, создание/подписание/оплата/отмена |
+| [`tbank.nominal_accounts`](nominal_accounts.md) | Номинальные счета: бенефициары и реквизиты, скоринг, сделки/этапы/депоненты/реципиенты, платежи, балансы, холды, переводы |
+| [`tbank.direct_debit`](direct_debit.md) | Безакцептные списания: соглашения, правила (рекуррентные и триггерные), платёжные требования |
+| [`tbank.overnight`](overnight.md) | Овернайты: сводка по счёту, пополнение |
+| [`tbank.special_accounts`](special_accounts.md) | Специальные счета: аресты средств и картотеки ЭТП |
+| [`tbank.merchant_acquiring`](merchant_acquiring.md) | Торговый (POS) эквайринг: терминалы и операции по ним |
+| [`tbank.business_cards`](business_cards.md) | Бизнес-карты: выпуск/перевыпуск виртуальных карт, реквизиты, лимиты, блокировка |
+| [`tbank.delivery`](delivery.md) | Партнёрская доставка: задания, встречи и интервалы, документы (загрузка/скачивание) |
+| [`tbank.tax_consult`](tax_consult.md) | Налоговые консультации: заявки, чат, вложения, переходы воркфлоу |
+| [`tbank.deposit`](deposit.md) | Депозиты: карточка счёта, открытие и пополнение |
+| [`tbank.ved`](ved.md) | ВЭД (валютный контроль): постановка/изменение/снятие контракта, статус (HTTP-подпись) |
+| [`tbank.mails`](mails.md) | Письма (H2H): входящие письма, отметка о прочтении, непрочитанные |
+| [`tbank.files`](files.md) | Файловое хранилище: загрузка и скачивание файлов |
+| [`tbank.shopping`](shopping.md) | Шопинг — чаты магазина: чаты, сообщения, файлы |
 
 ```{toctree}
 :maxdepth: 2
@@ -70,6 +83,19 @@ dolyame
 tid
 selfemployed
 salary
+nominal_accounts
+direct_debit
+overnight
+special_accounts
+merchant_acquiring
+business_cards
+delivery
+tax_consult
+deposit
+ved
+mails
+files
+shopping
 ```
 
 ```{toctree}
