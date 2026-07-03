@@ -2,8 +2,26 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
-from pydantic import TypeAdapter
-
+from tbank.acquiring._endpoints import ADD_ACCOUNT_QR as _ADD_ACCOUNT_QR
+from tbank.acquiring._endpoints import ADD_ACCOUNT_QR_STATE as _ADD_ACCOUNT_QR_STATE
+from tbank.acquiring._endpoints import ADD_CARD as _ADD_CARD
+from tbank.acquiring._endpoints import ADD_CARD_STATE as _ADD_CARD_STATE
+from tbank.acquiring._endpoints import ADD_CUSTOMER as _ADD_CUSTOMER
+from tbank.acquiring._endpoints import BASE_URL
+from tbank.acquiring._endpoints import CANCEL as _CANCEL
+from tbank.acquiring._endpoints import CARDS_ADAPTER as _CARDS_ADAPTER
+from tbank.acquiring._endpoints import CHARGE as _CHARGE
+from tbank.acquiring._endpoints import CHARGE_QR as _CHARGE_QR
+from tbank.acquiring._endpoints import CONFIRM as _CONFIRM
+from tbank.acquiring._endpoints import GET_CUSTOMER as _GET_CUSTOMER
+from tbank.acquiring._endpoints import GET_QR as _GET_QR
+from tbank.acquiring._endpoints import GET_QR_STATE as _GET_QR_STATE
+from tbank.acquiring._endpoints import GET_STATE as _GET_STATE
+from tbank.acquiring._endpoints import INIT as _INIT
+from tbank.acquiring._endpoints import QR_MEMBERS as _QR_MEMBERS
+from tbank.acquiring._endpoints import REMOVE_CARD as _REMOVE_CARD
+from tbank.acquiring._endpoints import REMOVE_CUSTOMER as _REMOVE_CUSTOMER
+from tbank.acquiring._endpoints import SEND_CLOSING_RECEIPT as _SEND_CLOSING_RECEIPT
 from tbank.acquiring.auth import TokenSignatureAuth
 from tbank.acquiring.enums import CheckType, QrDataType
 from tbank.acquiring.errors import raise_for_acquiring_result
@@ -52,42 +70,9 @@ from tbank.acquiring.models import (
     SendClosingReceiptResponse,
 )
 from tbank.core.client import BaseAsyncClient
-from tbank.core.endpoint import Endpoint
 from tbank.core.models import Kopecks
 from tbank.core.retry import RetryPolicy
 from tbank.core.transport import AsyncTransport
-
-BASE_URL = "https://securepay.tinkoff.ru/v2"
-
-_INIT = Endpoint("POST", "/Init", InitResponse, InitRequest)
-_GET_STATE = Endpoint("POST", "/GetState", GetStateResponse, GetStateRequest)
-_CONFIRM = Endpoint("POST", "/Confirm", ConfirmResponse, ConfirmRequest)
-_CANCEL = Endpoint("POST", "/Cancel", CancelResponse, CancelRequest)
-_CHARGE = Endpoint("POST", "/Charge", ChargeResponse, ChargeRequest)
-_ADD_CUSTOMER = Endpoint("POST", "/AddCustomer", Customer, AddCustomerRequest)
-_GET_CUSTOMER = Endpoint("POST", "/GetCustomer", Customer, CustomerRequest)
-_REMOVE_CUSTOMER = Endpoint("POST", "/RemoveCustomer", Customer, CustomerRequest)
-_REMOVE_CARD = Endpoint("POST", "/RemoveCard", RemoveCardResponse, RemoveCardRequest)
-_GET_QR = Endpoint("POST", "/GetQr", GetQrResponse, GetQrRequest)
-_QR_MEMBERS = Endpoint(
-    "POST", "/QrMembersList", QrMembersListResponse, QrMembersListRequest
-)
-_ADD_ACCOUNT_QR = Endpoint(
-    "POST", "/AddAccountQr", AddAccountQrResponse, AddAccountQrRequest
-)
-_ADD_ACCOUNT_QR_STATE = Endpoint(
-    "POST", "/GetAddAccountQrState", AddAccountQrState, GetAddAccountQrStateRequest
-)
-_CHARGE_QR = Endpoint("POST", "/ChargeQr", ChargeQrResponse, ChargeQrRequest)
-_SEND_CLOSING_RECEIPT = Endpoint(
-    "POST", "/SendClosingReceipt", SendClosingReceiptResponse, SendClosingReceiptRequest
-)
-_ADD_CARD = Endpoint("POST", "/AddCard", AddCardResponse, AddCardRequest)
-_ADD_CARD_STATE = Endpoint(
-    "POST", "/GetAddCardState", AddCardState, GetAddCardStateRequest
-)
-_GET_QR_STATE = Endpoint("POST", "/GetQrState", QrState, GetQrStateRequest)
-_CARDS_ADAPTER = TypeAdapter(List[Card])
 
 
 class AcquiringClient(BaseAsyncClient):

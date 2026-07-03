@@ -94,7 +94,10 @@ def test_sync_client_and_non_json_error():
 
     client = SyncClient(token="T", transport=_transport(ok, sync=True))
     assert client.list_terminals().total_elements == 0
-    assert client.list_operations("T1", "2026-01-01", "2026-01-31", limit=10).operations == []
+    assert (
+        client.list_operations("T1", "2026-01-01", "2026-01-31", limit=10).operations
+        == []
+    )
     client.close()
 
     err = SyncClient(

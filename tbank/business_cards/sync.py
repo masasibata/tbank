@@ -1,12 +1,10 @@
 from __future__ import annotations
 
-import json
-from decimal import Decimal
-from typing import Any, Dict, List, Optional, Type, TypeVar, overload
+from typing import List, Optional
 
 import httpx
-from pydantic import BaseModel, TypeAdapter
 
+from tbank.business_cards._endpoints import APPLICATIONS as _APPLICATIONS
 from tbank.business_cards.errors import error_from_business_cards_response
 from tbank.business_cards.models import (
     BlockCardRequest,
@@ -26,21 +24,21 @@ from tbank.business_cards.models import (
     VirtualCardApplication,
     VirtualCardRequisites,
 )
-from tbank.core.auth import BearerAuth
 from tbank.core.client import BaseSyncClient
+from tbank.core.client import page_params as _params
 from tbank.core.errors import TBankAPIError
 from tbank.core.retry import RetryPolicy
-from tbank.core.transport import SyncTransport
-
-PROD_URL = "https://business.tbank.ru/openapi"
-SANDBOX_URL = "https://business.tbank.ru/openapi/sandbox"
-SECURED_URL = "https://secured-openapi.tbank.ru"
-SANDBOX_SECURED_URL = "https://business.tbank.ru/openapi/sandbox/secured"
-
-T = TypeVar("T", bound=BaseModel)
-
-_APPLICATIONS: TypeAdapter[List[VirtualCardApplication]] = TypeAdapter(
-    List[VirtualCardApplication]
+from tbank.core.transport import (
+    CertTypes,
+    SyncTransport,
+    VerifyTypes,
+    build_sync_transports,
+)
+from tbank.core.urls import (
+    PROD_URL,
+    SANDBOX_SECURED_URL,
+    SANDBOX_URL,
+    SECURED_URL,
 )
 
 
@@ -54,6 +52,8 @@ class BusinessCardsClient(BaseSyncClient):
     Суммы — `Decimal` в рублях, провод — `camelCase`.
     """
 
+    decimal_body = True
+
     def __init__(
         self,
         token: str,
@@ -61,86 +61,27 @@ class BusinessCardsClient(BaseSyncClient):
         base_url: Optional[str] = None,
         secured_base_url: Optional[str] = None,
         sandbox: bool = False,
-        cert: Optional[Any] = None,
-        verify: Any = True,
+        cert: Optional[CertTypes] = None,
+        verify: VerifyTypes = True,
         retry: Optional[RetryPolicy] = None,
         transport: Optional[SyncTransport] = None,
         secured_transport: Optional[SyncTransport] = None,
     ) -> None:
-        resolved = base_url or (SANDBOX_URL if sandbox else PROD_URL)
-        transport = transport or SyncTransport(
-            base_url=resolved, auth=BearerAuth(token), retry=retry
+        transport, secured_transport = build_sync_transports(
+            token,
+            base_url=base_url or (SANDBOX_URL if sandbox else PROD_URL),
+            secured_base_url=secured_base_url
+            or (SANDBOX_SECURED_URL if sandbox else SECURED_URL),
+            cert=cert,
+            verify=verify,
+            retry=retry,
+            transport=transport,
+            secured_transport=secured_transport,
         )
-        if secured_transport is None and cert is not None:
-            secured_resolved = secured_base_url or (
-                SANDBOX_SECURED_URL if sandbox else SECURED_URL
-            )
-            secured_transport = SyncTransport(
-                base_url=secured_resolved,
-                auth=BearerAuth(token),
-                retry=retry,
-                cert=cert,
-                verify=verify,
-            )
         super().__init__(transport, secured_transport)
-
-    def _parse_body(self, response: httpx.Response) -> Any:
-        # parse_float=Decimal — точные лимиты без float-погрешности.
-        return json.loads(response.text or "null", parse_float=Decimal)
 
     def _error_from_response(self, response: httpx.Response) -> TBankAPIError:
         return error_from_business_cards_response(response)
-
-    # --- Низкоуровневые помощники ---
-
-    def _get(
-        self,
-        path: str,
-        parser: Type[T],
-        *,
-        params: Optional[Dict[str, Any]] = None,
-        secured: bool = False,
-    ) -> T:
-        response = self._pick_transport(secured).request("GET", path, params=params)
-        self._raise_for_http(response)
-        return parser.model_validate(self._parse_body(response))
-
-    @overload
-    def _send(
-        self,
-        method: str,
-        path: str,
-        parser: Type[T],
-        *,
-        body: Optional[BaseModel] = ...,
-        secured: bool = ...,
-    ) -> T: ...
-
-    @overload
-    def _send(
-        self,
-        method: str,
-        path: str,
-        parser: None = ...,
-        *,
-        body: Optional[BaseModel] = ...,
-        secured: bool = ...,
-    ) -> None: ...
-
-    def _send(
-        self,
-        method: str,
-        path: str,
-        parser: Any = None,
-        *,
-        body: Optional[BaseModel] = None,
-        secured: bool = False,
-    ) -> Any:
-        response = self._pick_transport(secured).request(method, path, json=_dump(body))
-        self._raise_for_http(response)
-        if parser is None:
-            return None
-        return parser.model_validate(self._parse_body(response))
 
     # --- Карты ---
 
@@ -213,13 +154,12 @@ class BusinessCardsClient(BaseSyncClient):
         self, *, limit: int, offset: int
     ) -> List[VirtualCardApplication]:
         """Список заявок на выпуск виртуальных карт (v3, mTLS)."""
-        response = self._pick_transport(True).request(
-            "GET",
+        return self._get(
             "/api/v3/card/virtual/issue/application",
+            _APPLICATIONS,
             params={"limit": limit, "offset": offset},
+            secured=True,
         )
-        self._raise_for_http(response)
-        return _APPLICATIONS.validate_python(self._parse_body(response))
 
     # --- Перевыпуск виртуальной карты ---
 
@@ -266,13 +206,3 @@ class BusinessCardsClient(BaseSyncClient):
             body=request,
             secured=True,
         )
-
-
-def _dump(body: Optional[BaseModel]) -> Optional[Dict[str, Any]]:
-    if body is None:
-        return None
-    return body.model_dump(by_alias=True, exclude_none=True, mode="json")
-
-
-def _params(**kwargs: Any) -> Dict[str, Any]:
-    return {k: v for k, v in kwargs.items() if v is not None}

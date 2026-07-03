@@ -1,16 +1,37 @@
 from __future__ import annotations
 
-from typing import Any, List, Optional, Type, TypeVar
+from typing import List, Optional
 
 import httpx
-from pydantic import BaseModel
 
 from tbank.core.auth import BearerAuth
 from tbank.core.client import BaseSyncClient
-from tbank.core.endpoint import Endpoint
 from tbank.core.errors import TBankAPIError
 from tbank.core.retry import RetryPolicy
-from tbank.core.transport import SyncTransport
+from tbank.core.transport import CertTypes, SyncTransport, VerifyTypes
+from tbank.core.urls import PROD_URL
+from tbank.tid._endpoints import ADDRESSES_PATH as _ADDRESSES_PATH
+from tbank.tid._endpoints import BLACKLIST as _BLACKLIST
+from tbank.tid._endpoints import COMPANY as _COMPANY
+from tbank.tid._endpoints import DEBIT_ACCOUNTS as _DEBIT_ACCOUNTS
+from tbank.tid._endpoints import DELEGATED as _DELEGATED
+from tbank.tid._endpoints import DETAIL_COUNTERS as _DETAIL_COUNTERS
+from tbank.tid._endpoints import DRIVER_LICENSES as _DRIVER_LICENSES
+from tbank.tid._endpoints import FOREIGN_AGENT as _FOREIGN_AGENT
+from tbank.tid._endpoints import IDENTIFICATION_STATUS as _IDENTIFICATION_STATUS
+from tbank.tid._endpoints import INN as _INN
+from tbank.tid._endpoints import PASSPORT_PATH as _PASSPORT_PATH
+from tbank.tid._endpoints import PDL as _PDL
+from tbank.tid._endpoints import REMOTE_ID as _REMOTE_ID
+from tbank.tid._endpoints import SELF_EMPLOYED as _SELF_EMPLOYED
+from tbank.tid._endpoints import SET_COUNTERS as _SET_COUNTERS
+from tbank.tid._endpoints import SIGNER as _SIGNER
+from tbank.tid._endpoints import SNILS as _SNILS
+from tbank.tid._endpoints import SUBSCRIPTION as _SUBSCRIPTION
+from tbank.tid._endpoints import SUBSCRIPTION_GRADE as _SUBSCRIPTION_GRADE
+from tbank.tid._endpoints import USERINFO as _USERINFO
+from tbank.tid._endpoints import cobrand_path as _cobrand_path
+from tbank.tid._endpoints import personal_data_path as _personal_data_path
 from tbank.tid.enums import IdDocumentType, TokenTypeHint
 from tbank.tid.errors import error_from_tid_response
 from tbank.tid.models import (
@@ -50,51 +71,6 @@ from tbank.tid.oauth import (
     _OAuthBase,
 )
 
-PROD_URL = "https://business.tbank.ru/openapi"
-
-_M = TypeVar("_M", bound=BaseModel)
-
-# Data-эндпоинты берём в максимальной доступной версии (v2 там, где она есть).
-_COMPANY = Endpoint("GET", "/api/v2/company", CompanyInfo)
-_SIGNER = Endpoint("GET", "/api/v2/company/signer/status", SignerStatus)
-_USERINFO = Endpoint("GET", "/api/v1/individual/userinfo", UserAccountInfo)
-_INN = Endpoint("GET", "/api/v2/individual/documents/inn", InnResponse)
-_SNILS = Endpoint("GET", "/api/v2/individual/documents/snils", SnilsResponse)
-_DRIVER_LICENSES = Endpoint(
-    "GET", "/api/v2/individual/documents/driver-licenses", DriverLicensesResponse
-)
-_DEBIT_ACCOUNTS = Endpoint(
-    "GET", "/api/v2/individual/accounts/debit", DebitAccountsResponse
-)
-_IDENTIFICATION_STATUS = Endpoint(
-    "GET", "/api/v2/individual/identification/status", IdentificationStatus
-)
-_SELF_EMPLOYED = Endpoint(
-    "GET", "/api/v2/individual/self-employed/status", SelfEmployedStatus
-)
-_FOREIGN_AGENT = Endpoint(
-    "GET", "/api/v2/individual/foreignagent/status", ForeignAgentStatus
-)
-_PDL = Endpoint("GET", "/api/v2/individual/pdl/status", PdlStatus)
-_BLACKLIST = Endpoint("GET", "/api/v2/individual/blacklist/status", BlacklistStatus)
-_DETAIL_COUNTERS = Endpoint("GET", "/api/v1/individual/detail-counters", DetailCounters)
-_SET_COUNTERS = Endpoint(
-    "POST", "/api/v1/individual/detail-counters", SetCounterResponse, SetCounterRequest
-)
-_SUBSCRIPTION = Endpoint("GET", "/api/v1/individual/subscription", SubscriptionResponse)
-_SUBSCRIPTION_GRADE = Endpoint(
-    "GET", "/api/v1/individual/subscription/grade", SubscriptionGrade
-)
-_DELEGATED = Endpoint(
-    "GET", "/api/v1/individual/delegated-identification", DelegatedIdentification
-)
-_REMOTE_ID = Endpoint(
-    "POST",
-    "/api/v1/bio/remote-identification/result",
-    IdentificationData,
-    RemoteIdentificationRequest,
-)
-
 
 class TidClient(BaseSyncClient):
     """Синхронный клиент data-эндпоинтов T-ID (business.tbank.ru/openapi).
@@ -109,8 +85,8 @@ class TidClient(BaseSyncClient):
         token: str,
         *,
         base_url: Optional[str] = None,
-        cert: Optional[Any] = None,
-        verify: Any = True,
+        cert: Optional[CertTypes] = None,
+        verify: VerifyTypes = True,
         retry: Optional[RetryPolicy] = None,
         transport: Optional[SyncTransport] = None,
     ) -> None:
@@ -125,11 +101,6 @@ class TidClient(BaseSyncClient):
 
     def _error_from_response(self, response: httpx.Response) -> TBankAPIError:
         return error_from_tid_response(response)
-
-    def _get(self, path: str, model: Type[_M], params: Any = None) -> _M:
-        response = self._transport.request("GET", path, params=params)
-        self._raise_for_http(response)
-        return model.model_validate(self._parse_body(response))
 
     # --- Компания (T-Business ID) ---
 
@@ -160,7 +131,7 @@ class TidClient(BaseSyncClient):
     ) -> PassportData:
         """Паспортные данные (опционально фильтр по типам документа)."""
         params = {"idType": [t.value for t in id_type]} if id_type else None
-        return self._get("/api/v2/individual/documents/passport", PassportData, params)
+        return self._get(_PASSPORT_PATH, PassportData, params=params)
 
     def get_driver_licenses(self) -> DriverLicensesResponse:
         """Водительские удостоверения."""
@@ -169,7 +140,7 @@ class TidClient(BaseSyncClient):
     def get_addresses(self, address_type: Optional[str] = None) -> AddressesResponse:
         """Адреса физлица (опционально фильтр по типу адреса)."""
         params = {"addressType": address_type} if address_type else None
-        return self._get("/api/v2/individual/addresses", AddressesResponse, params)
+        return self._get(_ADDRESSES_PATH, AddressesResponse, params=params)
 
     def get_debit_accounts(self) -> DebitAccountsResponse:
         """Активные дебетовые счета клиента."""
@@ -201,7 +172,7 @@ class TidClient(BaseSyncClient):
 
     def get_cobrand(self, program_id: int) -> CobrandResponse:
         """Признак кобренда по идентификатору программы."""
-        return self._get(f"/api/v1/individual/cobrand/{program_id}", CobrandResponse)
+        return self._get(_cobrand_path(program_id), CobrandResponse)
 
     def get_detail_counters(self) -> DetailCounters:
         """Значение счётчика услуги клиента."""
@@ -227,9 +198,7 @@ class TidClient(BaseSyncClient):
 
     def get_personal_data(self, request_id: str) -> IdentificationData:
         """Результат удалённой идентификации в app-сценарии по requestId."""
-        return self._get(
-            f"/api/v1/identification/personalData/{request_id}", IdentificationData
-        )
+        return self._get(_personal_data_path(request_id), IdentificationData)
 
     def get_remote_identification_result(self, res_secret: str) -> IdentificationData:
         """Результат удалённой идентификации в web-сценарии по resSecret."""

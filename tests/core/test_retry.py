@@ -17,6 +17,30 @@ def test_network_error_retries():
     assert should_retry(RetryPolicy(), status=None, attempt=1) is True
 
 
+def test_post_not_retried_without_idempotency():
+    policy = RetryPolicy()
+    assert should_retry(policy, status=503, attempt=1, method="POST") is False
+    assert should_retry(policy, status=None, attempt=1, method="POST") is False
+
+
+def test_post_retried_on_429_even_without_idempotency():
+    assert should_retry(RetryPolicy(), status=429, attempt=1, method="POST") is True
+
+
+def test_post_retried_with_explicit_idempotent_flag():
+    policy = RetryPolicy()
+    assert (
+        should_retry(policy, status=503, attempt=1, method="POST", idempotent=True)
+        is True
+    )
+
+
+def test_post_retried_with_optin_policy():
+    policy = RetryPolicy(retry_non_idempotent=True)
+    assert should_retry(policy, status=503, attempt=1, method="POST") is True
+    assert should_retry(policy, status=None, attempt=1, method="POST") is True
+
+
 def test_delay_is_exponential_without_jitter():
     policy = RetryPolicy(backoff_base=0.5, jitter=False)
     assert compute_delay(policy, attempt=1) == 0.5

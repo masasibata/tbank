@@ -1,15 +1,17 @@
 from __future__ import annotations
 
-import uuid
-from typing import Any, Dict, Optional
+from typing import Optional
 
 import httpx
 
 from tbank.core.auth import BearerAuth
 from tbank.core.client import BaseSyncClient
+from tbank.core.client import ensure_idempotency_key as _idem
 from tbank.core.errors import TBankAPIError
 from tbank.core.retry import RetryPolicy
-from tbank.core.transport import SyncTransport
+from tbank.core.transport import CertTypes, SyncTransport, VerifyTypes
+from tbank.core.urls import SANDBOX_SECURED_URL, SECURED_URL
+from tbank.tax_consult import _endpoints
 from tbank.tax_consult.errors import error_from_tax_consult_response
 from tbank.tax_consult.models import (
     ChatPage,
@@ -18,14 +20,6 @@ from tbank.tax_consult.models import (
     UploadAttachmentResult,
     WorkflowState,
 )
-
-SECURED_URL = "https://secured-openapi.tbank.ru"
-SANDBOX_SECURED_URL = "https://business.tbank.ru/openapi/sandbox/secured"
-
-_BASE = "/api/v1/consult/requests"
-_COMMENT = f"{_BASE}/comment"
-_WORKFLOW = f"{_COMMENT}/workflow"
-_ATTACHMENTS = f"{_BASE}/attachments"
 
 
 class TaxConsultClient(BaseSyncClient):
@@ -43,8 +37,8 @@ class TaxConsultClient(BaseSyncClient):
         *,
         base_url: Optional[str] = None,
         sandbox: bool = False,
-        cert: Optional[Any] = None,
-        verify: Any = True,
+        cert: Optional[CertTypes] = None,
+        verify: VerifyTypes = True,
         retry: Optional[RetryPolicy] = None,
         transport: Optional[SyncTransport] = None,
     ) -> None:
@@ -65,31 +59,26 @@ class TaxConsultClient(BaseSyncClient):
 
     def get_request(self, tax_request_id: str) -> ConsultRequest:
         """Карточка заявки: тип, статус, версия, непрочитанные сообщения."""
-        response = self._transport.request(
-            "GET", _COMMENT, params={"taxRequestId": tax_request_id}
+        return self._get(
+            _endpoints.COMMENT, ConsultRequest, params={"taxRequestId": tax_request_id}
         )
-        self._raise_for_http(response)
-        return ConsultRequest.model_validate(self._parse_body(response))
 
     def get_chat(self, tax_request_id: str, *, limit: int, offset: int) -> ChatPage:
         """Сообщения чата заявки (постранично)."""
-        response = self._transport.request(
-            "GET",
-            f"{_COMMENT}/chat",
+        return self._get(
+            _endpoints.CHAT,
+            ChatPage,
             params={"taxRequestId": tax_request_id, "limit": limit, "offset": offset},
         )
-        self._raise_for_http(response)
-        return ChatPage.model_validate(self._parse_body(response))
 
     def send_message(self, tax_request_id: str, request: SendMessageRequest) -> None:
         """Отправить сообщение в чат заявки."""
-        response = self._transport.request(
+        self._send(
             "POST",
-            f"{_COMMENT}/chat/send",
+            _endpoints.CHAT_SEND,
+            body=request,
             params={"taxRequestId": tax_request_id},
-            json=request.model_dump(by_alias=True, exclude_none=True, mode="json"),
         )
-        self._raise_for_http(response)
 
     # --- Вложения ---
 
@@ -97,7 +86,7 @@ class TaxConsultClient(BaseSyncClient):
         """Скачать вложение заявки (бинарное содержимое)."""
         response = self._transport.request(
             "GET",
-            _ATTACHMENTS,
+            _endpoints.ATTACHMENTS,
             params={"taxRequestId": tax_request_id, "attachmentId": attachment_id},
         )
         self._raise_for_http(response)
@@ -115,14 +104,14 @@ class TaxConsultClient(BaseSyncClient):
         """Загрузить вложение к заявке (octet-stream)."""
         response = self._transport.request(
             "POST",
-            f"{_ATTACHMENTS}/upload",
+            _endpoints.ATTACHMENTS_UPLOAD,
             params={"taxRequestId": tax_request_id},
             content=content,
             headers={
                 "Content-Type": "application/octet-stream",
                 "X-Content-File-Name": file_name,
                 "X-Content-File-Type": file_type,
-                "X-Idempotency-Key": idempotency_key or str(uuid.uuid4()),
+                "X-Idempotency-Key": _idem(idempotency_key),
             },
         )
         self._raise_for_http(response)
@@ -133,9 +122,10 @@ class TaxConsultClient(BaseSyncClient):
     def _workflow(
         self, action: str, tax_request_id: str, cas_version: int
     ) -> WorkflowState:
+        # Не через _send: нужен заголовок If-Match (оптимистичная блокировка).
         response = self._transport.request(
             "POST",
-            f"{_WORKFLOW}/{action}",
+            _endpoints.workflow_path(action),
             params={"taxRequestId": tax_request_id},
             headers={"If-Match": str(cas_version)},
         )

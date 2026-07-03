@@ -534,8 +534,8 @@ def test_client_construction_branches(monkeypatch):
         def __init__(self, **kw):
             s_calls.append(kw)
 
-    monkeypatch.setattr("tbank.selfemployed.aio.AsyncTransport", FakeAsync)
-    monkeypatch.setattr("tbank.selfemployed.sync.SyncTransport", FakeSync)
+    monkeypatch.setattr("tbank.core.transport.AsyncTransport", FakeAsync)
+    monkeypatch.setattr("tbank.core.transport.SyncTransport", FakeSync)
 
     plain = SelfEmployedClient(token="x")
     assert plain._secured_transport is None

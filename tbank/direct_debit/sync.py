@@ -1,18 +1,21 @@
 from __future__ import annotations
 
-import json
-import uuid
-from decimal import Decimal
-from typing import Any, Dict, List, Optional, Sequence, Type, TypeVar, Union, overload
+from typing import Optional, Sequence
 
 import httpx
-from pydantic import BaseModel, TypeAdapter
 
 from tbank.core.auth import BearerAuth
 from tbank.core.client import BaseSyncClient
+from tbank.core.client import ensure_idempotency_key as _idem
+from tbank.core.client import page_params as _page
 from tbank.core.errors import TBankAPIError
 from tbank.core.retry import RetryPolicy
-from tbank.core.transport import SyncTransport
+from tbank.core.transport import CertTypes, SyncTransport, VerifyTypes
+from tbank.core.urls import SANDBOX_SECURED_URL, SECURED_URL
+from tbank.direct_debit._endpoints import RULE_DETAILS as _RULE_DETAILS
+from tbank.direct_debit._endpoints import V1 as _V1
+from tbank.direct_debit._endpoints import V2 as _V2
+from tbank.direct_debit._endpoints import enum_list as _enum_list
 from tbank.direct_debit.enums import RuleType
 from tbank.direct_debit.errors import error_from_direct_debit_response
 from tbank.direct_debit.models import (
@@ -33,17 +36,6 @@ from tbank.direct_debit.models import (
     RuleUpdate,
 )
 
-SECURED_URL = "https://secured-openapi.tbank.ru"
-SANDBOX_SECURED_URL = "https://business.tbank.ru/openapi/sandbox/secured"
-
-_V1 = "/api/v1"
-_V2 = "/api/v2"
-
-T = TypeVar("T", bound=BaseModel)
-
-# Карточка правила — полиморф (oneOf Recurrent/Trigger) по дискриминатору `type`.
-_RULE_DETAILS: TypeAdapter[RuleDetails] = TypeAdapter(RuleDetails)
-
 
 class DirectDebitClient(BaseSyncClient):
     """Синхронный клиент безакцептных списаний: соглашения, правила (рекуррентные
@@ -54,14 +46,16 @@ class DirectDebitClient(BaseSyncClient):
     генерируется автоматически). Суммы — `Decimal` в рублях, провод — `camelCase`.
     """
 
+    decimal_body = True
+
     def __init__(
         self,
         token: str,
         *,
         base_url: Optional[str] = None,
         sandbox: bool = False,
-        cert: Optional[Any] = None,
-        verify: Any = True,
+        cert: Optional[CertTypes] = None,
+        verify: VerifyTypes = True,
         retry: Optional[RetryPolicy] = None,
         transport: Optional[SyncTransport] = None,
     ) -> None:
@@ -75,69 +69,8 @@ class DirectDebitClient(BaseSyncClient):
         )
         super().__init__(transport)
 
-    def _parse_body(self, response: httpx.Response) -> Any:
-        # parse_float=Decimal — точные денежные суммы без float-погрешности.
-        return json.loads(response.text or "null", parse_float=Decimal)
-
     def _error_from_response(self, response: httpx.Response) -> TBankAPIError:
         return error_from_direct_debit_response(response)
-
-    # --- Низкоуровневые помощники ---
-
-    def _get(
-        self,
-        path: str,
-        parser: Union[Type[T], TypeAdapter[T]],
-        *,
-        params: Optional[Dict[str, Any]] = None,
-    ) -> T:
-        response = self._transport.request("GET", path, params=params)
-        self._raise_for_http(response)
-        return _parse(parser, self._parse_body(response))
-
-    @overload
-    def _send(
-        self,
-        method: str,
-        path: str,
-        parser: Union[Type[T], TypeAdapter[T]],
-        *,
-        body: Optional[BaseModel] = ...,
-        idempotency_key: Optional[str] = ...,
-    ) -> T: ...
-
-    @overload
-    def _send(
-        self,
-        method: str,
-        path: str,
-        parser: None = ...,
-        *,
-        body: Optional[BaseModel] = ...,
-        idempotency_key: Optional[str] = ...,
-    ) -> None: ...
-
-    def _send(
-        self,
-        method: str,
-        path: str,
-        parser: Any = None,
-        *,
-        body: Optional[BaseModel] = None,
-        idempotency_key: Optional[str] = None,
-    ) -> Any:
-        headers = (
-            {"Idempotency-Key": idempotency_key}
-            if idempotency_key is not None
-            else None
-        )
-        response = self._transport.request(
-            method, path, json=_dump(body), headers=headers
-        )
-        self._raise_for_http(response)
-        if parser is None:
-            return None
-        return _parse(parser, self._parse_body(response))
 
     # --- Правила ---
 
@@ -267,28 +200,3 @@ class DirectDebitClient(BaseSyncClient):
     def get_agreement_url(self) -> AgreementUrl:
         """Ссылка на форму подписания соглашения для контрагента."""
         return self._get(f"{_V1}/agreements/url", AgreementUrl)
-
-
-def _dump(body: Optional[BaseModel]) -> Optional[Dict[str, Any]]:
-    if body is None:
-        return None
-    return body.model_dump(by_alias=True, exclude_none=True, mode="json")
-
-
-def _parse(parser: Union[Type[T], TypeAdapter[T]], data: Any) -> T:
-    if isinstance(parser, TypeAdapter):
-        return parser.validate_python(data)
-    return parser.model_validate(data)
-
-
-def _page(offset: Optional[int], limit: Optional[int], **extra: Any) -> Dict[str, Any]:
-    params: Dict[str, Any] = {"offset": offset, "limit": limit, **extra}
-    return {k: v for k, v in params.items() if v is not None}
-
-
-def _enum_list(values: Optional[Sequence[RuleType]]) -> Optional[List[str]]:
-    return [v.value for v in values] if values else None
-
-
-def _idem(idempotency_key: Optional[str]) -> str:
-    return idempotency_key or str(uuid.uuid4())

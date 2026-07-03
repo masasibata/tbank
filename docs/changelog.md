@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.14.0
+
+- Рефакторинг доменов: декларации `Endpoint` вынесены в модуль `_endpoints.py`
+  каждого домена и переиспользуются sync/aio-клиентами.
+- Ядро: адреса хостов централизованы в `tbank.core.urls`; транспорты собираются
+  фабриками `build_sync_transports` / `build_async_transports`.
+- Ядро: единый разбор T-API error-ответов — `error_from_tapi_response`
+  в `tbank.core.errors`; доменные `errors.py` сведены к тонким обёрткам.
+- Ядро (`client`): хелперы `dump_model`, `parse_as` (поддержка `TypeAdapter`
+  для списков и oneOf), `page_params`, `ensure_idempotency_key`; флаг
+  `decimal_body` для парсинга денежных сумм в `Decimal`; `_call` принимает
+  словарь и валидирует его через `request_model` эндпоинта.
+- Ретраи: неидемпотентные запросы (POST без `Idempotency-Key`) по умолчанию
+  не повторяются (кроме 429), опция `RetryPolicy.retry_non_idempotent`;
+  задержка учитывает `Retry-After` в секундах и в формате HTTP-даты.
+
 ## 1.13.0
 
 - Новый домен **`tbank.mails`** — внутренние письма H2H: `push_incoming_mail`
