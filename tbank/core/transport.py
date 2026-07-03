@@ -13,6 +13,25 @@ from tbank.core.retry import RetryPolicy, compute_delay, should_retry
 DEFAULT_TIMEOUT = httpx.Timeout(30.0, connect=5.0)
 
 
+def _drop_json_content_type(
+    headers: "Headers",
+    data: Optional[Dict[str, Any]],
+    files: Optional[Any],
+) -> "Headers":
+    """Для multipart/form-запросов убирает дефолтный JSON-Content-Type, чтобы httpx
+    выставил свой (с boundary). Для `content` (сырое тело) Content-Type задаёт сам
+    вызывающий, поэтому его не трогаем."""
+    if data is None and files is None:
+        return headers
+    return {
+        k: v
+        for k, v in headers.items()
+        if not (
+            k.lower() == "content-type" and v.lower().startswith("application/json")
+        )
+    }
+
+
 class _TransportBase:
     def __init__(
         self,
@@ -73,15 +92,26 @@ class AsyncTransport(_TransportBase):
         json: Body = None,
         params: Optional[Dict[str, Any]] = None,
         headers: Optional[Dict[str, str]] = None,
+        data: Optional[Dict[str, Any]] = None,
+        files: Optional[Any] = None,
+        content: Optional[Any] = None,
     ) -> httpx.Response:
         url = self._url(path)
         body, merged = self._prepare(json, headers)
+        merged = _drop_json_content_type(merged, data, files)
         attempt = 0
         while True:
             attempt += 1
             try:
                 response = await self._client.request(
-                    method, url, json=body, params=params, headers=merged
+                    method,
+                    url,
+                    json=body,
+                    params=params,
+                    headers=merged,
+                    data=data,
+                    files=files,
+                    content=content,
                 )
             except httpx.TimeoutException as exc:
                 if should_retry(self._retry, status=None, attempt=attempt):
@@ -131,15 +161,26 @@ class SyncTransport(_TransportBase):
         json: Body = None,
         params: Optional[Dict[str, Any]] = None,
         headers: Optional[Dict[str, str]] = None,
+        data: Optional[Dict[str, Any]] = None,
+        files: Optional[Any] = None,
+        content: Optional[Any] = None,
     ) -> httpx.Response:
         url = self._url(path)
         body, merged = self._prepare(json, headers)
+        merged = _drop_json_content_type(merged, data, files)
         attempt = 0
         while True:
             attempt += 1
             try:
                 response = self._client.request(
-                    method, url, json=body, params=params, headers=merged
+                    method,
+                    url,
+                    json=body,
+                    params=params,
+                    headers=merged,
+                    data=data,
+                    files=files,
+                    content=content,
                 )
             except httpx.TimeoutException as exc:
                 if should_retry(self._retry, status=None, attempt=attempt):
